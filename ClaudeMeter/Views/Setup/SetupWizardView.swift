@@ -30,7 +30,7 @@ struct SetupWizardView: View {
                     .font(.title)
                     .fontWeight(.bold)
 
-                Text("Monitor your Claude API usage in real-time")
+                Text("Monitor your Claude.ai plan usage in real-time")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Protocol for Claude API usage operations
+/// Protocol for Claude.ai usage operations
 protocol UsageServiceProtocol: Actor {
     /// Fetch usage data for the user's organization
     /// - Parameter forceRefresh: If true, clears cache before fetching new data

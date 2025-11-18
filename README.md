@@ -2,7 +2,7 @@
 
 ![ClaudeMeter](README/heading.png)
 
-Keep track of your Claude API usage at a glance.
+Keep track of your Claude.ai plan usage at a glance.
 
 ## Features
 

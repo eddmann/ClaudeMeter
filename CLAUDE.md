@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ClaudeMeter is a macOS menu bar application that monitors Claude.ai API usage in real-time. It tracks 5-hour session limits, 7-day weekly limits, and Opus-specific usage, displaying color-coded indicators and sending notifications when thresholds are reached.
+ClaudeMeter is a macOS menu bar application that monitors Claude.ai plan usage in real-time. It tracks 5-hour session limits, 7-day weekly limits, and Opus-specific usage, displaying color-coded indicators and sending notifications when thresholds are reached.
 
 **Platform:** macOS 14.0+ (Sonoma or later)
 **Language:** Swift (SwiftUI + AppKit)
