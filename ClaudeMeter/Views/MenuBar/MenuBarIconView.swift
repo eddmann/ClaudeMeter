@@ -36,9 +36,9 @@ struct MenuBarIconView: View {
             .frame(width: 24, height: 12)
 
             if isLoading {
-                ProgressView()
-                    .scaleEffect(0.6)
-                    .frame(width: 30, height: 12)
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(statusColor)
             } else {
                 Text("\(Int(percentage))%")
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
@@ -48,7 +48,7 @@ struct MenuBarIconView: View {
             if isStale && !isLoading {
                 Image(systemName: "exclamationmark.triangle.fill")
                    .font(.system(size: 8))
-                   .foregroundColor(.orange)
+                   .foregroundColor(statusColor)
             }
         }
         .frame(height: 22)
