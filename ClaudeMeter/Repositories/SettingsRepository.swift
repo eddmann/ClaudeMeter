@@ -41,6 +41,7 @@ actor SettingsRepository: SettingsRepositoryProtocol {
 
         let data = try encoder.encode(settings)
         userDefaults.set(data, forKey: settingsKey)
+        userDefaults.synchronize()
     }
 
     /// Load notification state from UserDefaults
@@ -63,5 +64,6 @@ actor SettingsRepository: SettingsRepositoryProtocol {
         let encoder = JSONEncoder()
         let data = try encoder.encode(state)
         userDefaults.set(data, forKey: notificationStateKey)
+        userDefaults.synchronize()
     }
 }
