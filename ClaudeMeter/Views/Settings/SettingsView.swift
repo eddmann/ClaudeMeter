@@ -14,6 +14,31 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Show loading state while settings are being loaded
+            if viewModel.isLoadingSettings {
+                VStack {
+                    Spacer()
+                    ProgressView("Loading settings...")
+                        .controlSize(.large)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                settingsContent
+            }
+        }
+        .frame(width: 500, height: 540)
+        .onAppear {
+            Task {
+                await viewModel.loadSettings()
+            }
+        }
+    }
+
+    // MARK: - Settings Content
+
+    private var settingsContent: some View {
+        VStack(spacing: 0) {
             // Content
             Form {
                 // Session Key Section
@@ -186,12 +211,21 @@ struct SettingsView: View {
             // Footer with actions
             HStack {
                 if let errorMessage = viewModel.errorMessage {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.red)
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundColor(.red)
+
+                        // Show "Open Settings" button if it's a notification permission error
+                        if errorMessage.contains("System Settings") {
+                            Button("Open Settings") {
+                                viewModel.openSystemNotificationSettings()
+                            }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                        }
                     }
                 }
 
@@ -206,7 +240,10 @@ struct SettingsView: View {
                 Button("Save") {
                     Task {
                         await viewModel.saveSettings()
-                        dismiss()
+                        // Only dismiss if save was successful (no error message)
+                        if viewModel.errorMessage == nil {
+                            dismiss()
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -220,12 +257,6 @@ struct SettingsView: View {
                 }
             }
             .padding()
-        }
-        .frame(width: 500, height: 540)
-        .onAppear {
-            Task {
-                await viewModel.loadSettings()
-            }
         }
     }
 

@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import AppKit
 
 /// ViewModel for settings management
 @MainActor
@@ -26,6 +27,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var validationSuccess: Bool = false
     @Published var isSaving: Bool = false
     @Published var errorMessage: String?
+    @Published var isLoadingSettings: Bool = true
 
     @Published var showSessionKey: Bool = false
 
@@ -58,21 +60,33 @@ final class SettingsViewModel: ObservableObject {
 
     /// Load current settings
     func loadSettings() async {
+        isLoadingSettings = true
+
         do {
             // Load app settings
             let settings = await settingsRepository.load()
             self.refreshInterval = settings.refreshInterval
-            self.notificationsEnabled = settings.notificationsEnabled
             self.warningThreshold = settings.notificationThresholds.warningThreshold
             self.criticalThreshold = settings.notificationThresholds.criticalThreshold
             self.notifyOnReset = settings.notificationThresholds.notifyOnReset
             self.showOpusUsage = settings.showOpusUsage
+
+            // Check actual system notification permissions and sync with settings
+            let hasSystemPermission = await notificationService.checkNotificationPermissions()
+            self.notificationsEnabled = settings.notificationsEnabled && hasSystemPermission
+
+            // If settings say enabled but system permission is denied, clear error and allow re-enabling
+            if settings.notificationsEnabled && !hasSystemPermission {
+                errorMessage = nil
+            }
 
             // Load session key from keychain
             if let keyString = try? await keychainRepository.retrieve(account: "default") {
                 self.sessionKey = keyString
             }
         }
+
+        isLoadingSettings = false
     }
 
     /// Validate session key before saving
@@ -139,9 +153,10 @@ final class SettingsViewModel: ObservableObject {
                     do {
                         let granted = try await notificationService.requestAuthorization()
                         if !granted {
-                            errorMessage = "Notification permission denied. Enable in System Settings."
+                            errorMessage = "Notifications disabled. Open System Settings > Notifications > ClaudeMeter to enable."
                             isSaving = false
-                            return
+                            // Don't return - save other settings anyway
+                            notificationsEnabled = false // Reflect actual state
                         }
                     } catch {
                         errorMessage = "Failed to request notification permission: \(error.localizedDescription)"
@@ -178,6 +193,13 @@ final class SettingsViewModel: ObservableObject {
     /// Toggle session key visibility
     func toggleSessionKeyVisibility() {
         showSessionKey.toggle()
+    }
+
+    /// Open System Settings to Notifications pane
+    func openSystemNotificationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     /// Send test notification
