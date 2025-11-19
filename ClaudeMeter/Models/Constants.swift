@@ -37,5 +37,8 @@ enum Constants {
 
         /// Maximum refresh interval
         static let maximum: TimeInterval = 600
+
+        /// Staleness threshold (2x max refresh interval to account for retries/delays)
+        static let stalenessThreshold: TimeInterval = 1200
     }
 }

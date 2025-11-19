@@ -51,8 +51,7 @@ extension UsageData {
         }
     }
 
-    /// Check if data is stale (> 10 seconds old)
     var isStale: Bool {
-        Date().timeIntervalSince(lastUpdated) > 10
+        Date().timeIntervalSince(lastUpdated) > Constants.Refresh.stalenessThreshold
     }
 }
