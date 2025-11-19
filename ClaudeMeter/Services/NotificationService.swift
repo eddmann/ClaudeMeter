@@ -8,8 +8,9 @@
 import Foundation
 import UserNotifications
 
-/// Actor-isolated notification service
-actor NotificationService: NSObject, NotificationServiceProtocol, UNUserNotificationCenterDelegate {
+/// Main actor-isolated notification service
+@MainActor
+final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     private let settingsRepository: SettingsRepositoryProtocol
     private var notificationTracker: [UsageThresholdType: Bool] = [:]
@@ -19,8 +20,7 @@ actor NotificationService: NSObject, NotificationServiceProtocol, UNUserNotifica
         super.init()
     }
 
-    /// Setup notification center delegate (must be called from @MainActor context)
-    @MainActor
+    /// Setup notification center delegate
     func setupDelegate() {
         center.delegate = self
     }
@@ -118,7 +118,6 @@ actor NotificationService: NSObject, NotificationServiceProtocol, UNUserNotifica
 
     // MARK: - UNUserNotificationCenterDelegate
 
-    @MainActor
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,

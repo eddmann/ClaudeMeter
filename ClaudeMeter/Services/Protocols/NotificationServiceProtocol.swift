@@ -38,9 +38,9 @@ enum UsageThresholdType: String {
 }
 
 /// Protocol for notification operations
-protocol NotificationServiceProtocol: Actor {
-    /// Setup notification center delegate (must be called from @MainActor context)
-    @MainActor
+@MainActor
+protocol NotificationServiceProtocol {
+    /// Setup notification center delegate
     func setupDelegate()
 
     /// Request notification authorization from the user
