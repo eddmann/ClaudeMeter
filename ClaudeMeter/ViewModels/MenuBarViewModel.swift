@@ -45,8 +45,10 @@ final class MenuBarViewModel: ObservableObject {
         setupSettingsObserver()
         setupWakeFromSleepObserver()
 
+        // Show loading state immediately and force refresh on boot
+        isLoading = true
         Task {
-            await fetchUsage()
+            await fetchUsage(forceRefresh: true)
         }
     }
 
@@ -57,12 +59,12 @@ final class MenuBarViewModel: ObservableObject {
     // MARK: - Public Methods
 
     /// Fetch usage data
-    func fetchUsage() async {
+    func fetchUsage(forceRefresh: Bool = false) async {
         isLoading = true
         errorMessage = nil
 
         do {
-            let data = try await usageService.fetchUsage(forceRefresh: false)
+            let data = try await usageService.fetchUsage(forceRefresh: forceRefresh)
             self.usageData = data
             isLoading = false
 
