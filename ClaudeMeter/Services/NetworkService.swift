@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.claudemeter", category: "NetworkService")
 
 /// Actor-isolated network service using URLSession
 actor NetworkService: NetworkServiceProtocol {
@@ -53,6 +56,9 @@ actor NetworkService: NetworkServiceProtocol {
 
         // Handle HTTP status codes
         guard (200...299).contains(httpResponse.statusCode) else {
+            let responseBody = String(data: data, encoding: .utf8) ?? "<unable to decode>"
+            logger.error("HTTP \(httpResponse.statusCode) from \(endpoint): \(responseBody)")
+
             if httpResponse.statusCode == 401 {
                 throw NetworkError.authenticationFailed
             }
@@ -69,6 +75,8 @@ actor NetworkService: NetworkServiceProtocol {
             let result = try decoder.decode(T.self, from: data)
             return result
         } catch {
+            let responseBody = String(data: data, encoding: .utf8) ?? "<unable to decode>"
+            logger.error("Failed to decode response from \(endpoint): \(error.localizedDescription)\nResponse: \(responseBody)")
             throw NetworkError.decodingFailed(underlyingError: error)
         }
     }

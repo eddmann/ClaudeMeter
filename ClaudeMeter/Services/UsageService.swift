@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.claudemeter", category: "UsageService")
 
 /// Actor-isolated usage service with retry logic
 actor UsageService: UsageServiceProtocol {
@@ -84,34 +87,41 @@ actor UsageService: UsageServiceProtocol {
                 return usageData
 
             } catch NetworkError.networkUnavailable {
+                logger.warning("Network unavailable (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = NetworkError.networkUnavailable
                 let delay = pow(Constants.Network.backoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch NetworkError.rateLimitExceeded {
                 // Rate limit hit - use longer exponential backoff
+                logger.warning("Rate limit exceeded (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = NetworkError.rateLimitExceeded
                 let delay = pow(Constants.Network.rateLimitBackoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch NetworkError.authenticationFailed {
+                logger.error("Authentication failed - session key invalid")
                 throw AppError.sessionKeyInvalid
             } catch let error as URLError where error.code == .timedOut ||
                                                error.code == .cannotConnectToHost ||
                                                error.code == .networkConnectionLost ||
                                                error.code == .notConnectedToInternet {
                 // Retry on timeout and connection errors
+                logger.warning("URL error: \(error.localizedDescription) (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = error
                 let delay = pow(Constants.Network.backoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch {
+                logger.error("API request failed: \(error.localizedDescription)")
                 throw AppError.networkError(error as? NetworkError ?? .invalidResponse)
             }
         }
 
         // If all retries failed, check for last known data
         if let lastKnown = await cacheRepository.getLastKnown() {
+            logger.warning("All retries failed, using cached data")
             return lastKnown
         }
 
+        logger.error("All retries failed, no cached data available")
         throw AppError.networkError(lastError as? NetworkError ?? .networkUnavailable)
     }
 
