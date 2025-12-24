@@ -101,6 +101,60 @@ Your Claude session key is stored in your browser cookies:
 - Click the icon to access detailed statistics and adjust settings
 - Receive automatic notifications when reaching warning or critical thresholds
 
+### Integration with External Tools
+
+ClaudeMeter exports usage data to `~/.claudemeter/usage.json` for use with external tools like Claude Code statusline scripts, shell prompts, or custom dashboards.
+
+**JSON format:**
+
+```json
+{
+  "last_updated": "2025-12-24T07:30:00Z",
+  "session_usage": {
+    "reset_at": "2025-12-24T12:00:00Z",
+    "utilization": 29.5
+  },
+  "sonnet_usage": {
+    "reset_at": "2025-12-30T00:00:00Z",
+    "utilization": 15.2
+  },
+  "weekly_usage": {
+    "reset_at": "2025-12-30T00:00:00Z",
+    "utilization": 45.0
+  }
+}
+```
+
+**Example: Claude Code statusline**
+
+Create `~/.claude/statusline.sh`:
+
+```bash
+#!/bin/bash
+usage=$(jq -r '.session_usage.utilization | floor' ~/.claudemeter/usage.json 2>/dev/null)
+
+if [ -z "$usage" ] || [ "$usage" = "null" ]; then
+  echo "Usage: ~"
+elif [ "$usage" -lt 50 ]; then
+  echo -e "\033[32mUsage: ${usage}%\033[0m"
+elif [ "$usage" -lt 80 ]; then
+  echo -e "\033[33mUsage: ${usage}%\033[0m"
+else
+  echo -e "\033[31mUsage: ${usage}%\033[0m"
+fi
+```
+
+Then configure Claude Code's `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  }
+}
+```
+
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later

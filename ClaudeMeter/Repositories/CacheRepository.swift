@@ -13,6 +13,7 @@ actor CacheRepository: CacheRepositoryProtocol {
     private var memoryCacheTimestamp: Date?
     private let cacheTTL: TimeInterval = Constants.Cache.ttl
     private let diskCacheURL: URL
+    private let publicJSONURL: URL
 
     init(fileManager: FileManager = .default) {
         let appSupport = fileManager.urls(
@@ -24,6 +25,12 @@ actor CacheRepository: CacheRepositoryProtocol {
         try? fileManager.createDirectory(at: cacheDir, withIntermediateDirectories: true)
 
         self.diskCacheURL = cacheDir.appendingPathComponent("usage_cache.json")
+
+        // Public JSON export at ~/.claudemeter/usage.json for external tools
+        let homeDir = fileManager.homeDirectoryForCurrentUser
+        let publicDir = homeDir.appendingPathComponent(".claudemeter", isDirectory: true)
+        try? fileManager.createDirectory(at: publicDir, withIntermediateDirectories: true)
+        self.publicJSONURL = publicDir.appendingPathComponent("usage.json")
     }
 
     /// Get cached usage data (respects TTL)
@@ -71,6 +78,25 @@ actor CacheRepository: CacheRepositoryProtocol {
             try jsonData.write(to: diskCacheURL, options: .atomic)
         } catch {
             // Silently fail
+        }
+
+        // Also write to public location for external tools (statusline scripts, etc.)
+        saveToPublicJSON(data)
+    }
+
+    private func saveToPublicJSON(_ data: UsageData) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        guard let jsonData = try? encoder.encode(data) else {
+            return
+        }
+
+        do {
+            try jsonData.write(to: publicJSONURL, options: .atomic)
+        } catch {
+            // Silently fail - external tools location is optional
         }
     }
 
