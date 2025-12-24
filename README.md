@@ -112,15 +112,15 @@ ClaudeMeter exports usage data to `~/.claudemeter/usage.json` for use with exter
   "last_updated": "2025-12-24T07:30:00Z",
   "session_usage": {
     "reset_at": "2025-12-24T12:00:00Z",
-    "utilization": 29.5
+    "utilization": 29
   },
   "sonnet_usage": {
     "reset_at": "2025-12-30T00:00:00Z",
-    "utilization": 15.2
+    "utilization": 15
   },
   "weekly_usage": {
     "reset_at": "2025-12-30T00:00:00Z",
-    "utilization": 45.0
+    "utilization": 45
   }
 }
 ```
@@ -131,7 +131,7 @@ Create `~/.claude/statusline.sh`:
 
 ```bash
 #!/bin/bash
-usage=$(jq -r '.session_usage.utilization | floor' ~/.claudemeter/usage.json 2>/dev/null)
+usage=$(jq -r '.session_usage.utilization' ~/.claudemeter/usage.json 2>/dev/null)
 
 if [ -z "$usage" ] || [ "$usage" = "null" ]; then
   echo "Usage: ~"
