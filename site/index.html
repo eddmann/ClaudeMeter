@@ -60,6 +60,14 @@
     }
     </script>
 
+    <!-- Theme flash prevention -->
+    <script>
+        if (localStorage.getItem('theme-preference') === 'dark' ||
+            (!localStorage.getItem('theme-preference') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,6 +77,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
@@ -112,6 +121,7 @@
 
         body {
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
         }
 
         .gradient-text {
@@ -139,6 +149,32 @@
                 0 20px 40px rgba(224, 122, 79, 0.12),
                 0 8px 16px rgba(0, 0, 0, 0.04);
             border-color: rgba(224, 122, 79, 0.3);
+        }
+
+        /* Dark mode styles */
+        html.dark body {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        html.dark .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        html.dark .glass-card:hover {
+            background: rgba(30, 41, 59, 0.85);
+            box-shadow:
+                0 20px 40px rgba(224, 122, 79, 0.15),
+                0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        html.dark .bg-pattern {
+            background-color: #0f172a;
+            background-image:
+                linear-gradient(180deg, #0f172a 0%, #1e293b 100%),
+                radial-gradient(rgba(224, 122, 79, 0.06) 1px, transparent 1px);
+            background-blend-mode: normal, overlay;
         }
 
         .btn-primary {
@@ -251,7 +287,19 @@
         }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 antialiased overflow-x-hidden bg-pattern">
+<body class="min-h-screen text-slate-800 dark:text-slate-200 antialiased overflow-x-hidden bg-pattern">
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" onclick="toggleTheme()"
+        class="fixed top-6 right-6 z-50 p-3 rounded-2xl bg-white/70 dark:bg-slate-800/70 backdrop-blur-lg border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-300"
+        aria-label="Toggle dark mode">
+        <svg class="w-5 h-5 text-slate-600 dark:text-slate-300 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        <svg class="w-5 h-5 text-slate-600 dark:text-slate-300 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+    </button>
+
     <!-- Hero Section -->
     <section class="relative min-h-screen flex items-center justify-center px-6 py-20">
         <div class="max-w-5xl mx-auto text-center">
@@ -263,12 +311,12 @@
             </div>
 
             <!-- Headline -->
-            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight animate-fade-in-up stagger-2 text-slate-900">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight animate-fade-in-up stagger-2 text-slate-900 dark:text-white">
                 Track Your <span class="gradient-text">Claude.ai</span> Usage
             </h1>
 
             <!-- Tagline -->
-            <p class="text-xl md:text-2xl text-slate-500 mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-in-up stagger-3">
+            <p class="text-xl md:text-2xl text-slate-500 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-in-up stagger-3">
                 Keep track of your Claude.ai plan usage at a glance. A lightweight macOS menu bar app for power users.
             </p>
 
@@ -280,7 +328,7 @@
                     </svg>
                     Download for macOS
                 </a>
-                <a href="https://github.com/eddmann/ClaudeMeter" class="px-8 py-4 text-lg font-semibold text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-3 border border-slate-200 rounded-2xl hover:border-slate-300 bg-white/50 backdrop-blur">
+                <a href="https://github.com/eddmann/ClaudeMeter" class="px-8 py-4 text-lg font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors inline-flex items-center gap-3 border border-slate-200 dark:border-slate-700 rounded-2xl hover:border-slate-300 dark:hover:border-slate-600 bg-white/50 dark:bg-slate-800/50 backdrop-blur">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
@@ -289,7 +337,7 @@
             </div>
 
             <!-- macOS Badge -->
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-slate-200 text-sm text-slate-500 animate-fade-in-up stagger-5">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 animate-fade-in-up stagger-5">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                 </svg>
@@ -303,8 +351,8 @@
         <div class="max-w-6xl mx-auto">
             <!-- Section Header -->
             <div class="text-center mb-16">
-                <h2 class="text-3xl md:text-4xl font-bold mb-4 text-slate-900">Everything you need to stay informed</h2>
-                <p class="text-slate-500 text-lg max-w-2xl mx-auto">Powerful features designed for Claude.ai power users who want complete visibility into their usage.</p>
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 text-slate-900 dark:text-white">Everything you need to stay informed</h2>
+                <p class="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto">Powerful features designed for Claude.ai power users who want complete visibility into their usage.</p>
             </div>
 
             <!-- Features Grid -->
@@ -316,8 +364,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">Real-time Monitoring</h3>
-                    <p class="text-slate-500 leading-relaxed">Track your 5-hour session limits, 7-day weekly usage, and Sonnet-specific limits in real-time. Never get caught off guard by hitting your limits.</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">Real-time Monitoring</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Track your 5-hour session limits, 7-day weekly usage, and Sonnet-specific limits in real-time. Never get caught off guard by hitting your limits.</p>
                 </div>
 
                 <!-- Feature 2 -->
@@ -327,8 +375,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">Menu Bar Indicator</h3>
-                    <p class="text-slate-500 leading-relaxed">Color-coded gauge icon in your menu bar. Green for safe, yellow for warning, red for critical - see your status at a glance.</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">Menu Bar Indicator</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Color-coded gauge icon in your menu bar. Green for safe, yellow for warning, red for critical - see your status at a glance.</p>
                 </div>
 
                 <!-- Feature 3 -->
@@ -338,8 +386,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">Smart Notifications</h3>
-                    <p class="text-slate-500 leading-relaxed">Configurable warning and critical thresholds. Get notified before you hit your limits, not after.</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">Smart Notifications</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Configurable warning and critical thresholds. Get notified before you hit your limits, not after.</p>
                 </div>
 
                 <!-- Feature 4 -->
@@ -349,8 +397,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">Auto-refresh</h3>
-                    <p class="text-slate-500 leading-relaxed">Automatic usage updates every 1, 5, or 10 minutes. Set it and forget it - your usage data is always up to date.</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">Auto-refresh</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Automatic usage updates every 1, 5, or 10 minutes. Set it and forget it - your usage data is always up to date.</p>
                 </div>
 
                 <!-- Feature 5 -->
@@ -360,8 +408,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">JSON Export</h3>
-                    <p class="text-slate-500 leading-relaxed">Export usage data as JSON for integration with external tools, scripts, and dashboards (e.g. Claude Code statusline).</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">JSON Export</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Export usage data as JSON for integration with external tools, scripts, and dashboards (e.g. Claude Code statusline).</p>
                 </div>
 
                 <!-- Feature 6 -->
@@ -371,8 +419,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold mb-3 text-slate-900">Secure Storage</h3>
-                    <p class="text-slate-500 leading-relaxed">Session keys are encrypted and stored securely in the macOS Keychain. Your credentials never leave your machine.</p>
+                    <h3 class="text-xl font-semibold mb-3 text-slate-900 dark:text-white">Secure Storage</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">Session keys are encrypted and stored securely in the macOS Keychain. Your credentials never leave your machine.</p>
                 </div>
             </div>
         </div>
@@ -383,8 +431,8 @@
         <div class="max-w-4xl mx-auto">
             <!-- Section Header -->
             <div class="text-center mb-12">
-                <h2 class="text-3xl md:text-4xl font-bold mb-4 text-slate-900">Install in seconds</h2>
-                <p class="text-slate-500 text-lg">Get up and running with a single command using Homebrew.</p>
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 text-slate-900 dark:text-white">Install in seconds</h2>
+                <p class="text-slate-500 dark:text-slate-400 text-lg">Get up and running with a single command using Homebrew.</p>
             </div>
 
             <!-- Terminal -->
@@ -417,7 +465,7 @@
             </div>
 
             <!-- Alternative download -->
-            <p class="text-center mt-8 text-slate-400">
+            <p class="text-center mt-8 text-slate-400 dark:text-slate-500">
                 Or download directly from
                 <a href="https://github.com/eddmann/ClaudeMeter/releases" class="text-coral-500 hover:text-coral-600 underline underline-offset-4 transition-colors">GitHub Releases</a>
             </p>
@@ -425,34 +473,34 @@
     </section>
 
     <!-- Footer -->
-    <footer class="relative px-6 py-16 border-t border-slate-200">
+    <footer class="relative px-6 py-16 border-t border-slate-200 dark:border-slate-700">
         <div class="max-w-4xl mx-auto text-center">
             <div class="mb-8">
                 <span class="text-2xl font-bold gradient-text">ClaudeMeter</span>
             </div>
 
             <div class="flex items-center justify-center gap-6 mb-8">
-                <a href="https://github.com/eddmann/ClaudeMeter" class="text-slate-500 hover:text-slate-900 transition-colors inline-flex items-center gap-2">
+                <a href="https://github.com/eddmann/ClaudeMeter" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors inline-flex items-center gap-2">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
                     GitHub
                 </a>
-                <span class="text-slate-300">|</span>
-                <a href="https://github.com/eddmann/ClaudeMeter/releases" class="text-slate-500 hover:text-slate-900 transition-colors">
+                <span class="text-slate-300 dark:text-slate-600">|</span>
+                <a href="https://github.com/eddmann/ClaudeMeter/releases" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                     Releases
                 </a>
-                <span class="text-slate-300">|</span>
-                <a href="https://github.com/eddmann/ClaudeMeter/issues" class="text-slate-500 hover:text-slate-900 transition-colors">
+                <span class="text-slate-300 dark:text-slate-600">|</span>
+                <a href="https://github.com/eddmann/ClaudeMeter/issues" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                     Issues
                 </a>
             </div>
 
-            <p class="text-slate-400 text-sm">
+            <p class="text-slate-400 dark:text-slate-500 text-sm">
                 Built by <a href="https://eddmann.com" class="text-coral-500 hover:text-coral-600 transition-colors">Edd Mann</a>
             </p>
 
-            <p class="text-slate-400 text-xs mt-4">
+            <p class="text-slate-400 dark:text-slate-500 text-xs mt-4">
                 ClaudeMeter is not affiliated with or endorsed by Anthropic.
             </p>
         </div>
@@ -490,6 +538,36 @@
         document.querySelectorAll('.opacity-0-initial').forEach(el => {
             observer.observe(el);
         });
+
+        // Theme toggle
+        (function() {
+            const STORAGE_KEY = 'theme-preference';
+
+            function getThemePreference() {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) return stored;
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            function setTheme(theme) {
+                document.documentElement.classList.toggle('dark', theme === 'dark');
+            }
+
+            setTheme(getThemePreference());
+
+            window.toggleTheme = function() {
+                const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                const next = current === 'dark' ? 'light' : 'dark';
+                localStorage.setItem(STORAGE_KEY, next);
+                setTheme(next);
+            };
+
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (!localStorage.getItem(STORAGE_KEY)) {
+                    setTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+        })();
     </script>
 </body>
 </html>
