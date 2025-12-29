@@ -29,6 +29,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Fetch latest release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_TAG=$(gh release view --json tagName --jq '.tagName' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_TAG" ]; then
+            VERSION="${RELEASE_TAG#v}"
+            echo "Found release version: $VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "No releases found, keeping default version"
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Inject version into site
+        if: steps.version.outputs.version != ''
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating softwareVersion to $VERSION in site/index.html"
+          sed -i 's/"softwareVersion": "[^"]*"/"softwareVersion": "'"$VERSION"'"/' site/index.html
+          grep -o '"softwareVersion": "[^"]*"' site/index.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
