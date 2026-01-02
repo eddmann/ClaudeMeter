@@ -25,6 +25,7 @@ struct IconStylePicker: View {
                     style: style,
                     isSelected: selection == style
                 )
+                .contentShape(Rectangle())
                 .onTapGesture {
                     selection = style
                     onSelectionChanged?(style)
@@ -57,19 +58,16 @@ struct IconStyleCard: View {
                     .scaleEffect(1.2)
             }
 
-            Text(style.displayName)
-                .font(.caption)
-                .foregroundColor(isSelected ? .accentColor : .primary)
+            HStack(spacing: 4) {
+                Text(style.displayName)
+                    .font(.caption)
+                    .foregroundColor(isSelected ? .accentColor : .primary)
 
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundColor(.accentColor)
-            } else {
-                // Placeholder to maintain consistent height
-                Image(systemName: "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(.clear)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.accentColor)
+                }
             }
         }
         .padding(10)

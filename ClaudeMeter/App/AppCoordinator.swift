@@ -14,7 +14,6 @@ import Combine
 final class AppCoordinator: ObservableObject {
     private let container: DIContainer
     private var setupCoordinator: SetupCoordinator?
-    private var settingsCoordinator: SettingsCoordinator?
     private var menuBarManager: MenuBarManager?
     private var cancellables = Set<AnyCancellable>()
 
@@ -69,11 +68,9 @@ final class AppCoordinator: ObservableObject {
         NSApp.setActivationPolicy(.accessory)
     }
 
-    /// Show settings window
+    /// Show settings window via native Settings scene
     func showSettings() {
-        if settingsCoordinator == nil {
-            settingsCoordinator = SettingsCoordinator(container: container)
-        }
-        settingsCoordinator?.showSettings()
+        NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .openClaudeMeterSettings, object: nil)
     }
 }

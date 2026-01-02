@@ -14,9 +14,18 @@ struct ClaudeMeterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        Settings {
-            EmptyView()
+        // Hidden window keeps SwiftUI lifecycle alive for Settings scene
+        WindowGroup("ClaudeMeterLifecycle") {
+            HiddenWindowView()
         }
+        .defaultSize(width: 1, height: 1)
+        .windowStyle(.hiddenTitleBar)
+
+        // Native Settings scene with tab icons
+        Settings {
+            SettingsView(container: DIContainer.shared)
+        }
+        .windowResizability(.contentSize)
     }
 }
 
