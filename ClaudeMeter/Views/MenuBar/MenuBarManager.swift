@@ -21,6 +21,15 @@ final class MenuBarManager: ObservableObject {
     private var viewModel: MenuBarViewModel?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Current icon style (from settings)
+    private var iconStyle: IconStyle = .battery
+    /// Preview icon style (for live settings preview, nil when not previewing)
+    private var previewIconStyle: IconStyle?
+    /// Effective icon style to use for rendering
+    private var effectiveIconStyle: IconStyle {
+        previewIconStyle ?? iconStyle
+    }
+
     init(container: DIContainer) {
         self.container = container
     }
@@ -30,6 +39,10 @@ final class MenuBarManager: ObservableObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         guard let button = statusItem?.button else { return }
+
+        // Load initial icon style from settings
+        let settings = await container.settingsRepository.load()
+        iconStyle = settings.iconStyle
 
         let vm = MenuBarViewModel(
             usageService: container.usageService,
@@ -60,20 +73,64 @@ final class MenuBarManager: ObservableObject {
                 self?.showPopover()
             }
             .store(in: &cancellables)
+
+        // Setup observer for icon style preview (live preview in settings)
+        NotificationCenter.default.publisher(for: .iconStylePreviewChanged)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if let style = notification.object as? IconStyle {
+                    // Preview a specific style
+                    self.previewIconStyle = style
+                } else {
+                    // nil means revert - reload saved style from settings to ensure consistency
+                    Task { @MainActor in
+                        let settings = await self.container.settingsRepository.load()
+                        self.iconStyle = settings.iconStyle
+                        self.previewIconStyle = nil
+                        if let button = self.statusItem?.button {
+                            self.updateIcon(usageData: self.viewModel?.usageData, isLoading: self.viewModel?.isLoading ?? false, button: button)
+                        }
+                    }
+                    return
+                }
+                if let button = self.statusItem?.button {
+                    self.updateIcon(usageData: self.viewModel?.usageData, isLoading: self.viewModel?.isLoading ?? false, button: button)
+                }
+            }
+            .store(in: &cancellables)
+
+        // Setup observer for settings changes (persisted icon style)
+        NotificationCenter.default.publisher(for: .settingsDidChange)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    let settings = await self.container.settingsRepository.load()
+                    self.iconStyle = settings.iconStyle
+                    self.previewIconStyle = nil // Clear preview on save
+                    if let button = self.statusItem?.button {
+                        self.updateIcon(usageData: self.viewModel?.usageData, isLoading: self.viewModel?.isLoading ?? false, button: button)
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Private Methods
 
     private func updateIcon(usageData: UsageData?, isLoading: Bool, button: NSButton) {
         let percentage = usageData?.sessionUsage.percentage ?? 0
+        let weeklyPercentage = usageData?.weeklyUsage.percentage ?? 0
         let status = usageData?.primaryStatus ?? .safe
         let isStale = usageData?.isStale ?? false
+        let style = effectiveIconStyle
 
         if let cachedImage = iconCache.get(
             percentage: percentage,
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: style,
+            weeklyPercentage: weeklyPercentage
         ) {
             button.image = cachedImage
             return
@@ -83,7 +140,9 @@ final class MenuBarManager: ObservableObject {
             percentage: percentage,
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: style,
+            weeklyPercentage: weeklyPercentage
         )
 
         iconCache.set(
@@ -91,7 +150,9 @@ final class MenuBarManager: ObservableObject {
             percentage: percentage,
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: style,
+            weeklyPercentage: weeklyPercentage
         )
 
         button.image = image

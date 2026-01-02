@@ -195,7 +195,8 @@ private actor StubSettingsRepository: SettingsRepositoryProtocol {
             notificationThresholds: .default,
             isFirstLaunch: true,
             cachedOrganizationId: nil,
-            isSonnetUsageShown: false
+            isSonnetUsageShown: false,
+            iconStyle: .battery
         )
     }
     func save(_ settings: AppSettings) async throws {}

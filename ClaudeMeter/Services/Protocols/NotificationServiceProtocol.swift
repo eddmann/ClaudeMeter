@@ -8,10 +8,11 @@
 import Foundation
 
 /// Types of usage threshold notifications
+/// Raw values are used for notification identifiers (not the actual threshold percentages)
 enum UsageThresholdType: String {
-    case warning = "75"
-    case critical = "90"
-    case reset = "reset"
+    case warning
+    case critical
+    case reset
 
     var title: String {
         switch self {

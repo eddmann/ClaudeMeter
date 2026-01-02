@@ -19,8 +19,8 @@ struct NotificationThresholds: Codable, Equatable, Sendable {
     var isNotifiedOnReset: Bool
 
     static let `default` = NotificationThresholds(
-        warningThreshold: 75,
-        criticalThreshold: 90,
+        warningThreshold: Constants.Thresholds.Notification.warningDefault,
+        criticalThreshold: Constants.Thresholds.Notification.criticalDefault,
         isNotifiedOnReset: true
     )
 

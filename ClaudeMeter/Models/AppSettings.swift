@@ -27,13 +27,17 @@ struct AppSettings: Codable, Equatable, Sendable {
     /// Whether to show Sonnet usage in the popover
     var isSonnetUsageShown: Bool
 
+    /// Menu bar icon display style
+    var iconStyle: IconStyle
+
     static let `default` = AppSettings(
         refreshInterval: 60,
         hasNotificationsEnabled: true,
         notificationThresholds: .default,
         isFirstLaunch: true,
         cachedOrganizationId: nil,
-        isSonnetUsageShown: false
+        isSonnetUsageShown: false,
+        iconStyle: .battery
     )
 
     enum CodingKeys: String, CodingKey {
@@ -43,6 +47,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         case isFirstLaunch = "is_first_launch"
         case cachedOrganizationId = "cached_organization_id"
         case isSonnetUsageShown = "show_sonnet_usage"
+        case iconStyle = "icon_style"
     }
 }
 

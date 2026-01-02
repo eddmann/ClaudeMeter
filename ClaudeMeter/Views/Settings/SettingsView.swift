@@ -27,7 +27,7 @@ struct SettingsView: View {
                 settingsContent
             }
         }
-        .frame(width: 500, height: 540)
+        .frame(width: 500, height: 700)
         .onAppear {
             Task {
                 await viewModel.loadSettings()
@@ -146,6 +146,27 @@ struct SettingsView: View {
                     Text("Display")
                 }
 
+                // Appearance Section
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Menu Bar Icon Style")
+                            .font(.headline)
+
+                        Text("Choose how the usage indicator appears in your menu bar. Changes preview live.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        IconStylePicker(selection: $viewModel.iconStyle) { style in
+                            viewModel.previewIconStyle(style)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Appearance")
+                }
+
                 // Notification Settings Section
                 Section {
                     Toggle("Enable Notifications", isOn: $viewModel.hasNotificationsEnabled)
@@ -160,7 +181,11 @@ struct SettingsView: View {
                                     Text("\(Int(viewModel.warningThreshold))%")
                                         .foregroundColor(.orange)
                                 }
-                                Slider(value: $viewModel.warningThreshold, in: 50...90, step: 5)
+                                Slider(
+                                    value: $viewModel.warningThreshold,
+                                    in: Constants.Thresholds.Notification.warningMin...Constants.Thresholds.Notification.warningMax,
+                                    step: Constants.Thresholds.Notification.step
+                                )
                                     .tint(.orange)
                                     .accessibilityLabel("Warning threshold slider")
                                     .accessibilityValue("\(Int(viewModel.warningThreshold)) percent")
@@ -176,7 +201,11 @@ struct SettingsView: View {
                                     Text("\(Int(viewModel.criticalThreshold))%")
                                         .foregroundColor(.red)
                                 }
-                                Slider(value: $viewModel.criticalThreshold, in: 75...100, step: 5)
+                                Slider(
+                                    value: $viewModel.criticalThreshold,
+                                    in: Constants.Thresholds.Notification.criticalMin...Constants.Thresholds.Notification.criticalMax,
+                                    step: Constants.Thresholds.Notification.step
+                                )
                                     .tint(.red)
                                     .accessibilityLabel("Critical threshold slider")
                                     .accessibilityValue("\(Int(viewModel.criticalThreshold)) percent")
@@ -253,6 +282,7 @@ struct SettingsView: View {
                 Spacer()
 
                 Button("Cancel") {
+                    viewModel.revertIconStylePreview()
                     dismiss()
                 }
                 .keyboardShortcut(.escape)

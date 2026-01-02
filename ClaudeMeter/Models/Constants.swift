@@ -41,4 +41,35 @@ enum Constants {
         /// Staleness threshold (2x max refresh interval to account for retries/delays)
         static let stalenessThreshold: TimeInterval = 1200
     }
+
+    /// Usage threshold configuration
+    enum Thresholds {
+        /// Visual status boundaries (fixed, for icon colors)
+        /// These determine when the icon color changes from green → orange → red
+        enum Status {
+            /// Percentage where warning status begins (orange) - safe is 0..<warningStart
+            static let warningStart: Double = 50
+            /// Percentage where critical status begins (red) - warning is warningStart..<criticalStart
+            static let criticalStart: Double = 80
+        }
+
+        /// Notification threshold configuration (user-configurable)
+        enum Notification {
+            /// Default warning notification threshold
+            static let warningDefault: Double = 75
+            /// Default critical notification threshold
+            static let criticalDefault: Double = 90
+
+            /// Slider bounds for warning threshold setting
+            static let warningMin: Double = 50
+            static let warningMax: Double = 90
+
+            /// Slider bounds for critical threshold setting
+            static let criticalMin: Double = 75
+            static let criticalMax: Double = 100
+
+            /// Slider step increment
+            static let step: Double = 5
+        }
+    }
 }

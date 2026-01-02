@@ -28,11 +28,12 @@ extension UsageLimit {
     }
 
     /// Status level based on percentage
+    /// Uses thresholds from Constants.Thresholds.Status
     var status: UsageStatus {
         switch utilization {
-        case 0..<50:
+        case 0..<Constants.Thresholds.Status.warningStart:
             return .safe
-        case 50..<80:
+        case Constants.Thresholds.Status.warningStart..<Constants.Thresholds.Status.criticalStart:
             return .warning
         default:
             return .critical

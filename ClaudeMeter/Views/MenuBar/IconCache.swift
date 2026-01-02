@@ -38,26 +38,32 @@ final class IconCache {
         let status: UsageStatus
         let isLoading: Bool
         let isStale: Bool
+        let iconStyle: IconStyle
+        let weeklyPercentage: Int
     }
 
     /// Get cached icon if available
-    func get(percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool) -> NSImage? {
+    func get(percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool, iconStyle: IconStyle, weeklyPercentage: Double = 0) -> NSImage? {
         let key = CacheKey(
             percentage: Int(percentage),
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: iconStyle,
+            weeklyPercentage: Int(weeklyPercentage)
         )
         return cache.object(forKey: CacheKeyWrapper(key))
     }
 
     /// Store rendered icon in cache
-    func set(_ image: NSImage, percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool) {
+    func set(_ image: NSImage, percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool, iconStyle: IconStyle, weeklyPercentage: Double = 0) {
         let key = CacheKey(
             percentage: Int(percentage),
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: iconStyle,
+            weeklyPercentage: Int(weeklyPercentage)
         )
 
         cache.setObject(image, forKey: CacheKeyWrapper(key))

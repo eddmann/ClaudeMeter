@@ -24,11 +24,15 @@ final class SettingsViewModel: ObservableObject {
     // Display Settings
     @Published var refreshInterval: Double = 60
     @Published var isSonnetUsageShown: Bool = false
+    @Published var iconStyle: IconStyle = .battery
+
+    /// Original icon style for reverting on cancel
+    private var originalIconStyle: IconStyle = .battery
 
     // Notification Settings
     @Published var hasNotificationsEnabled: Bool = true
-    @Published var warningThreshold: Double = 75
-    @Published var criticalThreshold: Double = 90
+    @Published var warningThreshold: Double = Constants.Thresholds.Notification.warningDefault
+    @Published var criticalThreshold: Double = Constants.Thresholds.Notification.criticalDefault
     @Published var isNotifiedOnReset: Bool = true
     @Published var isSendingTestNotification: Bool = false
     @Published var testNotificationMessage: String?
@@ -78,6 +82,8 @@ final class SettingsViewModel: ObservableObject {
             self.criticalThreshold = settings.notificationThresholds.criticalThreshold
             self.isNotifiedOnReset = settings.notificationThresholds.isNotifiedOnReset
             self.isSonnetUsageShown = settings.isSonnetUsageShown
+            self.iconStyle = settings.iconStyle
+            self.originalIconStyle = settings.iconStyle
 
             // Check actual system notification permissions and sync with settings
             let hasSystemPermission = await notificationService.checkNotificationPermissions()
@@ -191,6 +197,7 @@ final class SettingsViewModel: ObservableObject {
                 isNotifiedOnReset: isNotifiedOnReset
             )
             settings.isSonnetUsageShown = isSonnetUsageShown
+            settings.iconStyle = iconStyle
 
             // Save to repository
             try await settingsRepository.save(settings)
@@ -259,10 +266,23 @@ final class SettingsViewModel: ObservableObject {
 
         isSendingTestNotification = false
     }
+
+    /// Preview icon style in menu bar (live preview without saving)
+    func previewIconStyle(_ style: IconStyle) {
+        NotificationCenter.default.post(name: .iconStylePreviewChanged, object: style)
+    }
+
+    /// Revert icon style preview to original (call on cancel)
+    func revertIconStylePreview() {
+        iconStyle = originalIconStyle
+        // Post nil to clear preview and revert to saved style
+        NotificationCenter.default.post(name: .iconStylePreviewChanged, object: nil)
+    }
 }
 
 // MARK: - Notification Names
 
 extension Notification.Name {
     static let settingsDidChange = Notification.Name("settingsDidChange")
+    static let iconStylePreviewChanged = Notification.Name("iconStylePreviewChanged")
 }

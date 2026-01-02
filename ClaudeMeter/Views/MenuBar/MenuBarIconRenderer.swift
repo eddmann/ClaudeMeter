@@ -12,12 +12,14 @@ import SwiftUI
 @MainActor
 struct MenuBarIconRenderer {
     /// Render menu bar icon to NSImage
-    func render(percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool) -> NSImage {
+    func render(percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool, iconStyle: IconStyle, weeklyPercentage: Double = 0) -> NSImage {
         let iconView = MenuBarIconView(
             percentage: percentage,
             status: status,
             isLoading: isLoading,
-            isStale: isStale
+            isStale: isStale,
+            iconStyle: iconStyle,
+            weeklyPercentage: weeklyPercentage
         )
 
         let renderer = ImageRenderer(content: iconView)
