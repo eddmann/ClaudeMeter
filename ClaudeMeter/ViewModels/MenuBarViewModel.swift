@@ -60,7 +60,9 @@ final class MenuBarViewModel: ObservableObject {
 
     /// Fetch usage data
     func fetchUsage(forceRefresh: Bool = false) async {
-        isLoading = true
+        if usageData == nil {
+            isLoading = true
+        }
         errorMessage = nil
 
         do {
