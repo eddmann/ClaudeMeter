@@ -41,12 +41,6 @@ actor SettingsRepository: SettingsRepositoryProtocol {
 
         let data = try encoder.encode(settings)
         userDefaults.set(data, forKey: settingsKey)
-
-        // Force synchronization to disk
-        _ = userDefaults.synchronize()
-
-        // Small delay to ensure write completes before any window dismissal
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
     }
 
     /// Load notification state from UserDefaults
@@ -69,11 +63,5 @@ actor SettingsRepository: SettingsRepositoryProtocol {
         let encoder = JSONEncoder()
         let data = try encoder.encode(state)
         userDefaults.set(data, forKey: notificationStateKey)
-
-        // Force synchronization to disk
-        _ = userDefaults.synchronize()
-
-        // Small delay to ensure write completes
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
     }
 }

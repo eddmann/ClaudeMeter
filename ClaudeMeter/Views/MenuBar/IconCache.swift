@@ -2,75 +2,69 @@
 //  IconCache.swift
 //  ClaudeMeter
 //
-//  Created by Edd on 2025-11-14.
+//  Created by Edd on 2026-01-09.
 //
 
 import AppKit
 
-/// Cache for rendered menu bar icons using NSCache for automatic LRU eviction
-@MainActor
+/// Simple in-memory cache for rendered menu bar icons.
 final class IconCache {
-    private let cache = NSCache<CacheKeyWrapper, NSImage>()
+    private let cache = NSCache<NSString, NSImage>()
 
     init() {
         cache.countLimit = Constants.Cache.maxIconCacheSize
     }
 
-    final class CacheKeyWrapper: NSObject {
-        let key: CacheKey
-
-        init(_ key: CacheKey) {
-            self.key = key
-        }
-
-        override var hash: Int {
-            key.hashValue
-        }
-
-        override func isEqual(_ object: Any?) -> Bool {
-            guard let other = object as? CacheKeyWrapper else { return false }
-            return key == other.key
-        }
-    }
-
-    struct CacheKey: Hashable {
-        let percentage: Int
-        let status: UsageStatus
-        let isLoading: Bool
-        let isStale: Bool
-        let iconStyle: IconStyle
-        let weeklyPercentage: Int
-    }
-
-    /// Get cached icon if available
-    func get(percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool, iconStyle: IconStyle, weeklyPercentage: Double = 0) -> NSImage? {
-        let key = CacheKey(
-            percentage: Int(percentage),
+    func get(
+        percentage: Double,
+        status: UsageStatus,
+        isLoading: Bool,
+        isStale: Bool,
+        iconStyle: IconStyle,
+        weeklyPercentage: Double
+    ) -> NSImage? {
+        cache.object(forKey: cacheKey(
+            percentage: percentage,
             status: status,
             isLoading: isLoading,
             isStale: isStale,
             iconStyle: iconStyle,
-            weeklyPercentage: Int(weeklyPercentage)
-        )
-        return cache.object(forKey: CacheKeyWrapper(key))
+            weeklyPercentage: weeklyPercentage
+        ))
     }
 
-    /// Store rendered icon in cache
-    func set(_ image: NSImage, percentage: Double, status: UsageStatus, isLoading: Bool, isStale: Bool, iconStyle: IconStyle, weeklyPercentage: Double = 0) {
-        let key = CacheKey(
-            percentage: Int(percentage),
-            status: status,
-            isLoading: isLoading,
-            isStale: isStale,
-            iconStyle: iconStyle,
-            weeklyPercentage: Int(weeklyPercentage)
+    func set(
+        _ image: NSImage,
+        percentage: Double,
+        status: UsageStatus,
+        isLoading: Bool,
+        isStale: Bool,
+        iconStyle: IconStyle,
+        weeklyPercentage: Double
+    ) {
+        cache.setObject(
+            image,
+            forKey: cacheKey(
+                percentage: percentage,
+                status: status,
+                isLoading: isLoading,
+                isStale: isStale,
+                iconStyle: iconStyle,
+                weeklyPercentage: weeklyPercentage
+            )
         )
-
-        cache.setObject(image, forKey: CacheKeyWrapper(key))
     }
 
-    /// Clear all cached icons
-    func clear() {
-        cache.removeAllObjects()
+    private func cacheKey(
+        percentage: Double,
+        status: UsageStatus,
+        isLoading: Bool,
+        isStale: Bool,
+        iconStyle: IconStyle,
+        weeklyPercentage: Double
+    ) -> NSString {
+        let percent = String(format: "%.2f", percentage)
+        let weekly = String(format: "%.2f", weeklyPercentage)
+        return "\(percent)|\(weekly)|\(status.rawValue)|\(isLoading)|\(isStale)|\(iconStyle.rawValue)" as NSString
     }
 }

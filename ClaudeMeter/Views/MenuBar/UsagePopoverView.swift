@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import AppKit
 
 /// Usage popover view with detailed metrics
 struct UsagePopoverView: View {
-    @ObservedObject var viewModel: UsagePopoverViewModel
-    @Environment(\.openWindow) private var openWindow
+    @Bindable var appModel: AppModel
+    @Environment(\.openSettings) private var openSettings
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,10 +27,10 @@ struct UsagePopoverView: View {
                 // Refresh button
                 Button(action: {
                     Task {
-                        await viewModel.refresh()
+                        await appModel.refreshUsage(forceRefresh: true)
                     }
                 }) {
-                    if viewModel.isRefreshing {
+                    if appModel.isRefreshing {
                         ProgressView()
                             .scaleEffect(0.7)
                             .frame(width: 20, height: 20)
@@ -37,7 +39,7 @@ struct UsagePopoverView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(viewModel.isRefreshing)
+                .disabled(appModel.isRefreshing)
                 .help("Refresh usage data")
                 .keyboardShortcut("r", modifiers: .command)
             }
@@ -46,7 +48,7 @@ struct UsagePopoverView: View {
             Divider()
 
             // Error banner
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = appModel.errorMessage {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -62,7 +64,7 @@ struct UsagePopoverView: View {
                         // Retry button for recoverable errors
                         Button("Retry") {
                             Task {
-                                await viewModel.refresh()
+                                await appModel.refreshUsage(forceRefresh: true)
                             }
                         }
                         .buttonStyle(.bordered)
@@ -70,7 +72,7 @@ struct UsagePopoverView: View {
                         // Update Key button for authentication errors
                         if errorMessage.contains("invalid") || errorMessage.contains("expired") || errorMessage.contains("authentication") {
                             Button("Update Session Key") {
-                                NotificationCenter.default.post(name: .openSettings, object: nil)
+                                openSettingsFront()
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -83,7 +85,7 @@ struct UsagePopoverView: View {
             }
 
             // Content
-            if let usageData = viewModel.usageData {
+            if let usageData = appModel.usageData {
                 ScrollView {
                     VStack(spacing: 16) {
                         // Session usage card
@@ -101,7 +103,7 @@ struct UsagePopoverView: View {
                         )
 
                         // Sonnet usage card (conditional rendering)
-                        if viewModel.isSonnetUsageShown, let sonnetUsage = usageData.sonnetUsage {
+                        if appModel.settings.isSonnetUsageShown, let sonnetUsage = usageData.sonnetUsage {
                             UsageCardView(
                                 title: "Weekly Sonnet",
                                 usageLimit: sonnetUsage,
@@ -128,7 +130,7 @@ struct UsagePopoverView: View {
             // Footer with settings button
             HStack {
                 Button("Settings") {
-                    NotificationCenter.default.post(name: .openSettings, object: nil)
+                    openSettingsFront()
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(",", modifiers: .command)
@@ -150,39 +152,13 @@ struct UsagePopoverView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Usage Dashboard")
     }
+
+    private func openSettingsFront() {
+        dismiss()
+        if let keyWindow = NSApp.keyWindow, keyWindow.level != .normal {
+            keyWindow.orderOut(nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        openSettings()
+    }
 }
-
-// MARK: - Preview
-
-#Preview {
-    let container = DIContainer.shared
-    let viewModel = UsagePopoverViewModel(
-        settingsRepository: container.settingsRepository
-    )
-
-    // Mock data for preview
-    viewModel.usageData = UsageData(
-        sessionUsage: UsageLimit(
-            utilization: 35.0,
-            resetAt: Date().addingTimeInterval(7200)
-        ),
-        weeklyUsage: UsageLimit(
-            utilization: 75.0,
-            resetAt: Date().addingTimeInterval(86400 * 3)
-        ),
-        sonnetUsage: UsageLimit(
-            utilization: 50.0,
-            resetAt: Date().addingTimeInterval(86400 * 3)
-        ),
-        lastUpdated: Date()
-    )
-
-    return UsagePopoverView(viewModel: viewModel)
-}
-
-// MARK: - Notification Names
-
-extension Notification.Name {
-    static let openSettings = Notification.Name("openSettings")
-}
-

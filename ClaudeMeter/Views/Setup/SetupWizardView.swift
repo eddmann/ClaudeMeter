@@ -10,7 +10,12 @@ import AppKit
 
 /// Setup wizard view for initial configuration
 struct SetupWizardView: View {
-    @ObservedObject var viewModel: SetupViewModel
+    @Bindable var appModel: AppModel
+
+    @State private var sessionKeyInput: String = ""
+    @State private var isValidating: Bool = false
+    @State private var errorMessage: String?
+    @State private var hasValidationSucceeded: Bool = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -41,9 +46,9 @@ struct SetupWizardView: View {
                 Text("Claude Session Key")
                     .font(.headline)
 
-                SecureField("sk-ant-...", text: $viewModel.sessionKeyInput)
+                SecureField("sk-ant-...", text: $sessionKeyInput)
                     .textFieldStyle(.roundedBorder)
-                    .disabled(viewModel.isValidating)
+                    .disabled(isValidating)
                     .accessibilityLabel("Session key input field")
                     .accessibilityHint("Enter your Claude session key starting with sk-ant-")
 
@@ -52,20 +57,20 @@ struct SetupWizardView: View {
                     .foregroundColor(.secondary)
 
                 // Format validation indicator
-                if !viewModel.sessionKeyInput.isEmpty {
+                if !sessionKeyInput.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: viewModel.isFormatValid ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(viewModel.isFormatValid ? .green : .red)
-                        Text(viewModel.isFormatValid ? "Format valid" : "Invalid format (must start with sk-ant-)")
+                        Image(systemName: isFormatValid ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundColor(isFormatValid ? .green : .red)
+                        Text(isFormatValid ? "Format valid" : "Invalid format (must start with sk-ant-)")
                             .font(.caption)
-                            .foregroundColor(viewModel.isFormatValid ? .green : .red)
+                            .foregroundColor(isFormatValid ? .green : .red)
                     }
                 }
             }
             .padding(.horizontal, 32)
 
             // Error Message
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = errorMessage {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
@@ -81,7 +86,7 @@ struct SetupWizardView: View {
             }
 
             // Success Message
-            if viewModel.hasValidationSucceeded {
+            if hasValidationSucceeded {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
@@ -100,108 +105,60 @@ struct SetupWizardView: View {
             // Continue Button
             Button(action: {
                 Task {
-                    await viewModel.validateAndSave()
+                    await validateAndSave()
                 }
             }) {
                 HStack {
-                    Text(viewModel.isValidating ? "Validating..." : "Continue")
+                    Text(isValidating ? "Validating..." : "Continue")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             }
-            .allowsHitTesting(viewModel.isFormatValid && !viewModel.isValidating)
+            .allowsHitTesting(isFormatValid && !isValidating)
             .buttonStyle(.borderedProminent)
             .padding(.horizontal, 32)
             .padding(.bottom, 32)
-            .accessibilityLabel(viewModel.isValidating ? "Validating session key" : "Continue with setup")
+            .accessibilityLabel(isValidating ? "Validating session key" : "Continue with setup")
             .accessibilityHint("Validates your session key and completes setup")
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 360, height: 420)
     }
-}
+    // MARK: - Validation
 
-#Preview("Empty State") {
-    SetupWizardView(viewModel: SetupViewModel(
-        keychainRepository: StubKeychainRepository(),
-        usageService: StubUsageService(),
-        settingsRepository: StubSettingsRepository()
-    ))
-}
-
-#Preview("With Input") {
-    let viewModel = SetupViewModel(
-        keychainRepository: StubKeychainRepository(),
-        usageService: StubUsageService(),
-        settingsRepository: StubSettingsRepository()
-    )
-    viewModel.sessionKeyInput = "sk-ant-api03-abc123"
-    return SetupWizardView(viewModel: viewModel)
-}
-
-#Preview("Validating") {
-    let viewModel = SetupViewModel(
-        keychainRepository: StubKeychainRepository(),
-        usageService: StubUsageService(),
-        settingsRepository: StubSettingsRepository()
-    )
-    viewModel.sessionKeyInput = "sk-ant-api03-abc123"
-    viewModel.isValidating = true
-    return SetupWizardView(viewModel: viewModel)
-}
-
-#Preview("Error State") {
-    let viewModel = SetupViewModel(
-        keychainRepository: StubKeychainRepository(),
-        usageService: StubUsageService(),
-        settingsRepository: StubSettingsRepository()
-    )
-    viewModel.errorMessage = "Session key is invalid or expired"
-    return SetupWizardView(viewModel: viewModel)
-}
-
-// MARK: - Preview Stubs
-
-private actor StubKeychainRepository: KeychainRepositoryProtocol {
-    func save(sessionKey: String, account: String) async throws {}
-    func retrieve(account: String) async throws -> String { "" }
-    func update(sessionKey: String, account: String) async throws {}
-    func delete(account: String) async throws {}
-    func exists(account: String) async -> Bool { false }
-}
-
-private actor StubUsageService: UsageServiceProtocol {
-    func fetchUsage(forceRefresh: Bool) async throws -> UsageData {
-        let stubLimit = UsageLimit(
-            utilization: 0,
-            resetAt: Date().addingTimeInterval(3600)
-        )
-        return UsageData(
-            sessionUsage: stubLimit,
-            weeklyUsage: stubLimit,
-            sonnetUsage: nil,
-            lastUpdated: Date()
-        )
+    private var isFormatValid: Bool {
+        let trimmed = sessionKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("sk-ant-") && trimmed.count > 10
     }
-    func fetchOrganizations() async throws -> [Organization] { [] }
-    func fetchOrganizations(sessionKey: SessionKey) async throws -> [Organization] { [] }
-    func validateSessionKey(_ sessionKey: SessionKey) async throws -> Bool { true }
-}
 
-private actor StubSettingsRepository: SettingsRepositoryProtocol {
-    func load() async -> AppSettings {
-        await AppSettings(
-            refreshInterval: 60,
-            hasNotificationsEnabled: false,
-            notificationThresholds: .default,
-            isFirstLaunch: true,
-            cachedOrganizationId: nil,
-            isSonnetUsageShown: false,
-            iconStyle: .battery
-        )
+    @MainActor
+    private func validateAndSave() async {
+        guard !sessionKeyInput.isEmpty else {
+            errorMessage = "Session key cannot be empty"
+            hasValidationSucceeded = false
+            return
+        }
+
+        isValidating = true
+        errorMessage = nil
+        hasValidationSucceeded = false
+
+        do {
+            let isValid = try await appModel.validateAndSaveSessionKey(sessionKeyInput)
+            if isValid {
+                hasValidationSucceeded = true
+            } else {
+                errorMessage = "Session key is invalid or expired"
+            }
+        } catch let error as SessionKeyError {
+            errorMessage = error.localizedDescription
+        } catch let error as NetworkError {
+            errorMessage = "Network error: \(error.localizedDescription)"
+        } catch let error as AppError {
+            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = "Validation failed: \(error.localizedDescription)"
+        }
+
+        isValidating = false
     }
-    func save(_ settings: AppSettings) async throws {}
-    func loadNotificationState() async -> NotificationState {
-        await NotificationState()
-    }
-    func saveNotificationState(_ state: NotificationState) async throws {}
 }

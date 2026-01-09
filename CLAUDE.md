@@ -35,82 +35,60 @@ xcodebuild clean build \
 
 ## Architecture
 
-### MVVM-C (Model-View-ViewModel-Coordinator)
+### SwiftUI-First (macOS 14+)
 
-The app follows the MVVM-C pattern, separating navigation logic (Coordinators) from presentation logic (ViewModels):
+The app uses a SwiftUI-first architecture with a single observable app model and actor-isolated infrastructure.
 
-**Coordinators** - Handle navigation flow and window/view lifecycle:
+**AppModel** - `ClaudeMeter/App/AppModel.swift`  
+`@MainActor @Observable` state owner used by all views.
 
-1. **AppCoordinator** (ClaudeMeter/App/AppCoordinator.swift:14) - Root coordinator that manages app lifecycle
+- Loads settings and session-key state on startup
+- Runs the async refresh loop
+- Publishes usage data + error state for UI
+- Coordinates notifications when new usage arrives
 
-   - Checks for session key on launch
-   - Routes to SetupCoordinator (first-time setup) or MenuBarManager (main app)
-   - Manages SettingsCoordinator for preferences window
+**Scenes**
 
-2. **SetupCoordinator** - Guides user through initial session key configuration
+- `MenuBarExtra` (window style) hosts the popover content
+- `Settings` scene uses native tabbed preferences
+- Setup wizard shows in the popover until a session key is saved
 
-   - Validates session key with Claude API
-   - Saves to Keychain on successful validation
-   - Calls completion handler to transition to main app
+### Data & Infrastructure
 
-3. **SettingsCoordinator** - Manages settings window lifecycle and presentation
+**Repositories (actors)**
 
-4. **MenuBarManager** (ClaudeMeter/Views/MenuBar/MenuBarManager.swift:14) - Acts as coordinator for menu bar
-   - Owns NSStatusItem and NSPopover
-   - Creates and configures ViewModels
-   - Observes ViewModel changes to update UI
+- `KeychainRepository` - secure session key storage
+- `SettingsRepository` - UserDefaults persistence
+- `CacheRepository` - in-memory + disk cache
 
-**ViewModels** - Handle presentation logic and business logic coordination:
+**Services (actors/main actor)**
 
-Views use dedicated ViewModels that interact with services through protocols:
-
-- **MenuBarViewModel** (ClaudeMeter/ViewModels/MenuBarViewModel.swift:14) - Manages auto-refresh timer, fetches usage data, checks notification thresholds
-- **UsagePopoverViewModel** - Displays detailed usage breakdown in popover
-- **SettingsViewModel** - Handles preference changes and validation
-- **SetupViewModel** - Manages setup wizard state and validation
-
-### Dependency Injection
-
-**DIContainer** (ClaudeMeter/DependencyInjection/DIContainer.swift:12) - Single shared container that creates and owns all dependencies:
-
-**Repositories:**
-
-- KeychainRepository (actor) - Secure session key storage using macOS Keychain
-- SettingsRepository (actor) - UserDefaults persistence for app settings
-- CacheRepository (actor) - In-memory cache with TTL for usage data (55s TTL)
-
-**Services:**
-
-- NetworkService (actor) - HTTP client for Claude API
-- UsageService (actor) - Fetches usage data with exponential backoff retry (3 attempts, 2x backoff for network errors, 3x for rate limits)
-- NotificationService - Sends macOS notifications for threshold warnings
-
-All repositories and services implement protocols for testability.
+- `NetworkService` - Claude API HTTP client
+- `UsageService` - fetch + retry + cache integration
+- `NotificationService` - evaluates thresholds + sends notifications
 
 ### Concurrency Model
 
-- **All actors:** Repositories and most services are `actor`-isolated for thread-safe state management
-- **@MainActor:** Coordinators, ViewModels, and MenuBarManager are `@MainActor` for UI operations
-- **Async/await:** Used throughout for API calls and data fetching
+- **@MainActor:** `AppModel` and SwiftUI views
+- **Actors:** repositories and network/usage services
+- **Async/await:** end-to-end request pipeline
 
 ### Usage Data Pipeline
 
-1. MenuBarViewModel triggers refresh on timer (60s default, configurable 60-600s)
-2. UsageService checks CacheRepository (55s TTL)
-3. If cache miss, fetches from Claude API (`/api/organizations/{id}/usage`)
-4. NetworkService performs request with retry logic
-5. Response cached and returned to ViewModel
-6. ViewModel updates @Published properties
-7. MenuBarManager observes changes and re-renders icon
-8. Icon cached in IconCache (LRU, max 100 entries)
+1. `AppModel` starts a `ContinuousClock` refresh loop
+2. `UsageService` checks cache (TTL)
+3. On miss, fetches from Claude API (`/api/organizations/{id}/usage`)
+4. Response decoded + cached
+5. `AppModel` updates `usageData`
+6. `NotificationService` evaluates thresholds + persists notification state
+7. UI binds directly to `AppModel` state
 
 ### Notification System
 
-Notifications are sent when usage percentages cross thresholds (default 75% warning, 90% critical):
+Notifications are sent when usage crosses thresholds:
 
-- NotificationState (ClaudeMeter/Models/NotificationState.swift) tracks last notification sent
-- Prevents duplicate notifications for same threshold
-- Sends reset notification when usage drops below warning threshold
+- `NotificationState` tracks last percentage + sent flags
+- Honors the “notify on reset” toggle
 - Uses UserNotificationCenter with banner and sound
 
 ## Key Implementation Details
@@ -128,12 +106,11 @@ Session keys may contain embedded organization UUID after the hyphen (e.g., `sk-
 
 ### Menu Bar Icon Rendering
 
-Icons are rendered dynamically using MenuBarIconRenderer (ClaudeMeter/Views/MenuBar/MenuBarIconRenderer.swift):
+The menu bar icon is a SwiftUI view (`MenuBarIconView`) used directly as the `MenuBarExtra` label:
 
-- Draws gauge segments with color based on UsageStatus (safe: green, warning: yellow, critical: red)
-- Shows loading spinner animation
-- Indicates stale data (>10s old) with visual cue
-- Cached by IconCache with composite key: (percentage, status, isLoading, isStale)
+- Draws gauge segments with color based on `UsageStatus`
+- Shows loading/stale state
+- Updates automatically as `AppModel` publishes new usage data
 
 ### Error Handling & Retry
 
@@ -182,15 +159,15 @@ The workflow:
 1. Add property to AppSettings struct (ClaudeMeter/Models/AppSettings.swift)
 2. Implement save/load in SettingsRepository
 3. Add UI control in SettingsView
-4. Update SettingsViewModel to bind to the setting
-5. Post `.settingsDidChange` notification if live update needed
+4. Bind the control to `appModel.settings` (AppModel auto-saves on change)
+5. If behavior depends on the setting, update AppModel to react (e.g., restart refresh loop)
 
 ### Adding a New API Endpoint
 
 1. Define response model in ClaudeMeter/Models/API/
 2. Add method to UsageServiceProtocol
 3. Implement in UsageService with retry logic
-4. Call from ViewModel or Coordinator
+4. Call from AppModel (or a dedicated helper type) and bind UI to AppModel state
 
 ### Testing Session Key Validation
 

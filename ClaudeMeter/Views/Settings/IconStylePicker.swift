@@ -10,7 +10,7 @@ import SwiftUI
 /// Visual grid picker for selecting menu bar icon style
 struct IconStylePicker: View {
     @Binding var selection: IconStyle
-    var onSelectionChanged: ((IconStyle) -> Void)?
+    var onSelectionChanged: ((IconStyle) -> Void)? = nil
 
     private let columns = [
         GridItem(.flexible()),

@@ -47,6 +47,12 @@ protocol NotificationServiceProtocol {
     /// Request notification authorization from the user
     func requestAuthorization() async throws -> Bool
 
+    /// Evaluate thresholds and send notifications for new usage data
+    func evaluateThresholds(
+        usageData: UsageData,
+        settings: AppSettings
+    ) async
+
     /// Send threshold notification
     func sendThresholdNotification(
         percentage: Double,
@@ -56,9 +62,6 @@ protocol NotificationServiceProtocol {
 
     /// Send session reset notification
     func sendResetNotification() async throws
-
-    /// Reset threshold tracking
-    func resetThresholdTracking(for threshold: UsageThresholdType) async
 
     /// Check system notification permissions
     func checkNotificationPermissions() async -> Bool

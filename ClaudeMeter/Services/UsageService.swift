@@ -8,10 +8,9 @@
 import Foundation
 import os
 
-private let logger = Logger(subsystem: "com.claudemeter", category: "UsageService")
-
 /// Actor-isolated usage service with retry logic
 actor UsageService: UsageServiceProtocol {
+    private static let logger = Logger(subsystem: "com.claudemeter", category: "UsageService")
     private let networkService: NetworkServiceProtocol
     private let cacheRepository: CacheRepositoryProtocol
     private let keychainRepository: KeychainRepositoryProtocol
@@ -34,8 +33,13 @@ actor UsageService: UsageServiceProtocol {
 
     /// Fetch usage data with cache integration and exponential backoff retry
     func fetchUsage(forceRefresh: Bool = false) async throws -> UsageData {
-        guard let sessionKeyString = try? await keychainRepository.retrieve(account: "default") else {
+        let sessionKeyString: String
+        do {
+            sessionKeyString = try await keychainRepository.retrieve(account: "default")
+        } catch KeychainError.notFound {
             throw AppError.noSessionKey
+        } catch let error as KeychainError {
+            throw AppError.keychainError(error)
         }
 
         let sessionKey = try SessionKey(sessionKeyString)
@@ -87,48 +91,53 @@ actor UsageService: UsageServiceProtocol {
                 return usageData
 
             } catch NetworkError.networkUnavailable {
-                logger.warning("Network unavailable (attempt \(attempt + 1)/\(self.maxRetries))")
+                Self.logger.warning("Network unavailable (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = NetworkError.networkUnavailable
                 let delay = pow(Constants.Network.backoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch NetworkError.rateLimitExceeded {
                 // Rate limit hit - use longer exponential backoff
-                logger.warning("Rate limit exceeded (attempt \(attempt + 1)/\(self.maxRetries))")
+                Self.logger.warning("Rate limit exceeded (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = NetworkError.rateLimitExceeded
                 let delay = pow(Constants.Network.rateLimitBackoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch NetworkError.authenticationFailed {
-                logger.error("Authentication failed - session key invalid")
+                Self.logger.error("Authentication failed - session key invalid")
                 throw AppError.sessionKeyInvalid
             } catch let error as URLError where error.code == .timedOut ||
                                                error.code == .cannotConnectToHost ||
                                                error.code == .networkConnectionLost ||
                                                error.code == .notConnectedToInternet {
                 // Retry on timeout and connection errors
-                logger.warning("URL error: \(error.localizedDescription) (attempt \(attempt + 1)/\(self.maxRetries))")
+                Self.logger.warning("URL error: \(error.localizedDescription) (attempt \(attempt + 1)/\(self.maxRetries))")
                 lastError = error
                 let delay = pow(Constants.Network.backoffBase, Double(attempt))
                 try await Task.sleep(for: .seconds(delay))
             } catch {
-                logger.error("API request failed: \(error.localizedDescription)")
+                Self.logger.error("API request failed: \(error.localizedDescription)")
                 throw AppError.networkError(error as? NetworkError ?? .invalidResponse)
             }
         }
 
         // If all retries failed, check for last known data
         if let lastKnown = await cacheRepository.getLastKnown() {
-            logger.warning("All retries failed, using cached data")
+            Self.logger.warning("All retries failed, using cached data")
             return lastKnown
         }
 
-        logger.error("All retries failed, no cached data available")
+        Self.logger.error("All retries failed, no cached data available")
         throw AppError.networkError(lastError as? NetworkError ?? .networkUnavailable)
     }
 
     /// Fetch list of organizations for the user
     func fetchOrganizations() async throws -> [Organization] {
-        guard let sessionKeyString = try? await keychainRepository.retrieve(account: "default") else {
+        let sessionKeyString: String
+        do {
+            sessionKeyString = try await keychainRepository.retrieve(account: "default")
+        } catch KeychainError.notFound {
             throw AppError.noSessionKey
+        } catch let error as KeychainError {
+            throw AppError.keychainError(error)
         }
 
         let sessionKey = try SessionKey(sessionKeyString)

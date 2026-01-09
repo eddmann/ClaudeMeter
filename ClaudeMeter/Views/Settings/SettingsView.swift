@@ -7,10 +7,11 @@
 
 import SwiftUI
 import ServiceManagement
+import AppKit
 
 /// Settings view with tabbed interface
 struct SettingsView: View {
-    let container: DIContainer
+    @Bindable var appModel: AppModel
 
     @State private var sessionKey: String = ""
     @State private var isSessionKeyShown: Bool = false
@@ -18,22 +19,12 @@ struct SettingsView: View {
     @State private var sessionKeyValidationMessage: String?
     @State private var hasSessionKeyValidationSucceeded: Bool = false
 
-    @State private var refreshInterval: Double = 60
-    @State private var isSonnetUsageShown: Bool = false
-    @State private var iconStyle: IconStyle = .battery
-
-    @State private var hasNotificationsEnabled: Bool = true
-    @State private var warningThreshold: Double = Constants.Thresholds.Notification.warningDefault
-    @State private var criticalThreshold: Double = Constants.Thresholds.Notification.criticalDefault
-    @State private var isNotifiedOnReset: Bool = true
     @State private var isSendingTestNotification: Bool = false
     @State private var testNotificationMessage: String?
     @State private var hasTestNotificationSucceeded: Bool = false
     @State private var notificationError: String?
 
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
-
-    @State private var isLoading: Bool = true
 
     var body: some View {
         TabView {
@@ -48,16 +39,16 @@ struct SettingsView: View {
         .onAppear {
             loadSettings()
         }
-        .modifier(SettingsAutoSaveModifier(
-            refreshInterval: $refreshInterval,
-            isSonnetUsageShown: $isSonnetUsageShown,
-            iconStyle: $iconStyle,
-            hasNotificationsEnabled: $hasNotificationsEnabled,
-            warningThreshold: $warningThreshold,
-            criticalThreshold: $criticalThreshold,
-            isNotifiedOnReset: $isNotifiedOnReset,
-            container: container
-        ))
+        .onChange(of: appModel.settings.hasNotificationsEnabled) { _, newValue in
+            if newValue {
+                Task {
+                    await appModel.requestNotificationPermissionIfNeeded()
+                    await updateNotificationStatus()
+                }
+            } else {
+                notificationError = nil
+            }
+        }
         .onChange(of: launchAtLogin) { _, newValue in
             updateLaunchAtLogin(newValue)
         }
@@ -67,7 +58,7 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if isLoading {
+            if !appModel.isReady {
                 VStack {
                     Spacer()
                     ProgressView("Loading settings...")
@@ -166,7 +157,7 @@ struct SettingsView: View {
 
             Spacer()
 
-            Picker("", selection: $refreshInterval) {
+            Picker("", selection: $appModel.settings.refreshInterval) {
                 Text("1 minute").tag(60.0)
                 Text("5 minutes").tag(300.0)
                 Text("10 minutes").tag(600.0)
@@ -194,7 +185,7 @@ struct SettingsView: View {
 
             Spacer()
 
-            Toggle("", isOn: $isSonnetUsageShown)
+            Toggle("", isOn: $appModel.settings.isSonnetUsageShown)
                 .labelsHidden()
         }
         .padding()
@@ -213,10 +204,7 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            IconStylePicker(selection: $iconStyle) { style in
-                // Live preview
-                NotificationCenter.default.post(name: .iconStylePreviewChanged, object: style)
-            }
+            IconStylePicker(selection: $appModel.settings.iconStyle)
         }
         .padding()
         .background(.quaternary.opacity(0.3))
@@ -251,14 +239,14 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             enableNotificationsSection
             thresholdsSection
-                .opacity(hasNotificationsEnabled ? 1 : 0.5)
-                .allowsHitTesting(hasNotificationsEnabled)
+                .opacity(appModel.settings.hasNotificationsEnabled ? 1 : 0.5)
+                .allowsHitTesting(appModel.settings.hasNotificationsEnabled)
             resetNotificationSection
-                .opacity(hasNotificationsEnabled ? 1 : 0.5)
-                .allowsHitTesting(hasNotificationsEnabled)
+                .opacity(appModel.settings.hasNotificationsEnabled ? 1 : 0.5)
+                .allowsHitTesting(appModel.settings.hasNotificationsEnabled)
             testNotificationSection
-                .opacity(hasNotificationsEnabled ? 1 : 0.5)
-                .allowsHitTesting(hasNotificationsEnabled)
+                .opacity(appModel.settings.hasNotificationsEnabled ? 1 : 0.5)
+                .allowsHitTesting(appModel.settings.hasNotificationsEnabled)
         }
         .padding(24)
     }
@@ -276,7 +264,7 @@ struct SettingsView: View {
 
                 Spacer()
 
-                Toggle("", isOn: $hasNotificationsEnabled)
+                Toggle("", isOn: $appModel.settings.hasNotificationsEnabled)
                     .labelsHidden()
             }
 
@@ -308,13 +296,13 @@ struct SettingsView: View {
                     Text("Warning Threshold")
                         .font(.subheadline)
                     Spacer()
-                    Text("\(Int(warningThreshold))%")
+                    Text("\(Int(warningThresholdValue))%")
                         .foregroundStyle(.orange)
                         .font(.subheadline.monospacedDigit())
                 }
 
                 Slider(
-                    value: $warningThreshold,
+                    value: warningThresholdBinding,
                     in: Constants.Thresholds.Notification.warningMin...Constants.Thresholds.Notification.warningMax,
                     step: Constants.Thresholds.Notification.step
                 )
@@ -333,13 +321,13 @@ struct SettingsView: View {
                     Text("Critical Threshold")
                         .font(.subheadline)
                     Spacer()
-                    Text("\(Int(criticalThreshold))%")
+                    Text("\(Int(criticalThresholdValue))%")
                         .foregroundStyle(.red)
                         .font(.subheadline.monospacedDigit())
                 }
 
                 Slider(
-                    value: $criticalThreshold,
+                    value: criticalThresholdBinding,
                     in: Constants.Thresholds.Notification.criticalMin...Constants.Thresholds.Notification.criticalMax,
                     step: Constants.Thresholds.Notification.step
                 )
@@ -349,7 +337,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if criticalThreshold <= warningThreshold {
+                if criticalThresholdValue <= warningThresholdValue {
                     Label("Critical threshold must be higher than warning", systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.red)
@@ -373,7 +361,7 @@ struct SettingsView: View {
 
             Spacer()
 
-            Toggle("", isOn: $isNotifiedOnReset)
+            Toggle("", isOn: isNotifiedOnResetBinding)
                 .labelsHidden()
         }
         .padding()
@@ -407,6 +395,37 @@ struct SettingsView: View {
         .padding()
         .background(.quaternary.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Bindings
+
+    private var warningThresholdBinding: Binding<Double> {
+        Binding(
+            get: { appModel.settings.notificationThresholds.warningThreshold },
+            set: { appModel.settings.notificationThresholds.warningThreshold = $0 }
+        )
+    }
+
+    private var criticalThresholdBinding: Binding<Double> {
+        Binding(
+            get: { appModel.settings.notificationThresholds.criticalThreshold },
+            set: { appModel.settings.notificationThresholds.criticalThreshold = $0 }
+        )
+    }
+
+    private var isNotifiedOnResetBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.notificationThresholds.isNotifiedOnReset },
+            set: { appModel.settings.notificationThresholds.isNotifiedOnReset = $0 }
+        )
+    }
+
+    private var warningThresholdValue: Double {
+        appModel.settings.notificationThresholds.warningThreshold
+    }
+
+    private var criticalThresholdValue: Double {
+        appModel.settings.notificationThresholds.criticalThreshold
     }
 
     // MARK: - About Tab
@@ -469,33 +488,23 @@ struct SettingsView: View {
     // MARK: - Actions
 
     private func loadSettings() {
-        Task {
-            // Load session key from keychain
-            if let key = try? await container.keychainRepository.retrieve(account: "default") {
-                sessionKey = key
-            }
-
-            // Load app settings
-            let settings = await container.settingsRepository.load()
-            refreshInterval = settings.refreshInterval
-            isSonnetUsageShown = settings.isSonnetUsageShown
-            iconStyle = settings.iconStyle
-            warningThreshold = settings.notificationThresholds.warningThreshold
-            criticalThreshold = settings.notificationThresholds.criticalThreshold
-            isNotifiedOnReset = settings.notificationThresholds.isNotifiedOnReset
-
-            // Check notification permissions
-            let hasPermission = await container.notificationService.checkNotificationPermissions()
-            hasNotificationsEnabled = settings.hasNotificationsEnabled && hasPermission
-
-            if settings.hasNotificationsEnabled && !hasPermission {
-                notificationError = "Notifications disabled in System Settings"
-            }
-
-            isLoading = false
+        Task { @MainActor in
+            sessionKey = await appModel.loadSessionKey() ?? ""
+            await updateNotificationStatus()
         }
     }
 
+    @MainActor
+    private func updateNotificationStatus() async {
+        let hasPermission = await appModel.checkNotificationPermissions()
+        if appModel.settings.hasNotificationsEnabled && !hasPermission {
+            notificationError = "Notifications disabled in System Settings"
+        } else {
+            notificationError = nil
+        }
+    }
+
+    @MainActor
     private func validateAndSaveSessionKey() async {
         guard !sessionKey.isEmpty else {
             sessionKeyValidationMessage = "Session key cannot be empty"
@@ -508,21 +517,13 @@ struct SettingsView: View {
         hasSessionKeyValidationSucceeded = false
 
         do {
-            // Validate format
-            let key = try SessionKey(sessionKey)
-
-            // Validate with Claude API
-            let isValid = try await container.usageService.validateSessionKey(key)
+            let isValid = try await appModel.validateAndSaveSessionKey(sessionKey)
 
             if isValid {
-                // Save to keychain
-                try await container.keychainRepository.save(sessionKey: key.value, account: "default")
-
                 sessionKeyValidationMessage = "Session key saved"
                 hasSessionKeyValidationSucceeded = true
 
-                // Clear success message after 2 seconds
-                Task {
+                Task { @MainActor in
                     try? await Task.sleep(for: .seconds(2))
                     sessionKeyValidationMessage = nil
                     hasSessionKeyValidationSucceeded = false
@@ -543,9 +544,9 @@ struct SettingsView: View {
     }
 
     private func clearSessionKey() {
-        Task {
+        Task { @MainActor in
             do {
-                try await container.keychainRepository.delete(account: "default")
+                try await appModel.clearSessionKey()
                 sessionKey = ""
                 sessionKeyValidationMessage = nil
                 hasSessionKeyValidationSucceeded = false
@@ -569,16 +570,17 @@ struct SettingsView: View {
         }
     }
 
+    @MainActor
     private func sendTestNotification() async {
         isSendingTestNotification = true
         testNotificationMessage = nil
         hasTestNotificationSucceeded = false
 
         do {
-            // Check if we have permission first
-            let hasPermission = await container.notificationService.checkNotificationPermissions()
+            let hasPermission = await appModel.checkNotificationPermissions()
             if !hasPermission {
-                let granted = try await container.notificationService.requestAuthorization()
+                await appModel.requestNotificationPermissionIfNeeded()
+                let granted = await appModel.checkNotificationPermissions()
                 if !granted {
                     testNotificationMessage = "Permission denied"
                     hasTestNotificationSucceeded = false
@@ -588,17 +590,13 @@ struct SettingsView: View {
             }
 
             // Send test notification
-            try await container.notificationService.sendThresholdNotification(
-                percentage: 85.0,
-                threshold: .warning,
-                resetTime: Date().addingTimeInterval(3600)
-            )
+            try await appModel.sendTestNotification()
 
             testNotificationMessage = "Test notification sent!"
             hasTestNotificationSucceeded = true
 
             // Clear message after 2 seconds
-            Task {
+            Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2))
                 testNotificationMessage = nil
                 hasTestNotificationSucceeded = false
@@ -616,68 +614,4 @@ struct SettingsView: View {
             NSWorkspace.shared.open(url)
         }
     }
-}
-
-// MARK: - Auto-Save Modifier
-
-struct SettingsAutoSaveModifier: ViewModifier {
-    @Binding var refreshInterval: Double
-    @Binding var isSonnetUsageShown: Bool
-    @Binding var iconStyle: IconStyle
-    @Binding var hasNotificationsEnabled: Bool
-    @Binding var warningThreshold: Double
-    @Binding var criticalThreshold: Double
-    @Binding var isNotifiedOnReset: Bool
-    let container: DIContainer
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: refreshInterval) { _, _ in saveSettings() }
-            .onChange(of: isSonnetUsageShown) { _, _ in saveSettings() }
-            .onChange(of: iconStyle) { _, _ in
-                saveSettings()
-            }
-            .onChange(of: hasNotificationsEnabled) { _, newValue in
-                if newValue {
-                    requestNotificationPermission()
-                }
-                saveSettings()
-            }
-            .onChange(of: warningThreshold) { _, _ in saveSettings() }
-            .onChange(of: criticalThreshold) { _, _ in saveSettings() }
-            .onChange(of: isNotifiedOnReset) { _, _ in saveSettings() }
-    }
-
-    private func saveSettings() {
-        Task {
-            var settings = await container.settingsRepository.load()
-            settings.refreshInterval = refreshInterval
-            settings.isSonnetUsageShown = isSonnetUsageShown
-            settings.iconStyle = iconStyle
-            settings.hasNotificationsEnabled = hasNotificationsEnabled
-            settings.notificationThresholds = NotificationThresholds(
-                warningThreshold: warningThreshold,
-                criticalThreshold: criticalThreshold,
-                isNotifiedOnReset: isNotifiedOnReset
-            )
-
-            try? await container.settingsRepository.save(settings)
-            NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-        }
-    }
-
-    private func requestNotificationPermission() {
-        Task {
-            let hasPermission = await container.notificationService.checkNotificationPermissions()
-            if !hasPermission {
-                _ = try? await container.notificationService.requestAuthorization()
-            }
-        }
-    }
-}
-
-// MARK: - Preview
-
-#Preview {
-    SettingsView(container: DIContainer.shared)
 }

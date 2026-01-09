@@ -13,7 +13,6 @@ import UserNotifications
 final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     private let settingsRepository: SettingsRepositoryProtocol
-    private var notificationTracker: [UsageThresholdType: Bool] = [:]
 
     init(settingsRepository: SettingsRepositoryProtocol) {
         self.settingsRepository = settingsRepository
@@ -31,6 +30,66 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         return granted
     }
 
+    /// Evaluate usage thresholds and send notifications
+    func evaluateThresholds(
+        usageData: UsageData,
+        settings: AppSettings
+    ) async {
+        let thresholds = settings.notificationThresholds
+        let percentage = usageData.sessionUsage.percentage
+        let resetTime = usageData.sessionUsage.resetAt
+
+        var state = await settingsRepository.loadNotificationState()
+        let hasPermission = await checkNotificationPermissions()
+        let isNotificationEnabled = settings.hasNotificationsEnabled && hasPermission
+
+        let shouldNotifyWarning = state.shouldNotify(
+            currentPercentage: percentage,
+            threshold: thresholds.warningThreshold,
+            isWarning: true
+        )
+        let shouldNotifyCritical = state.shouldNotify(
+            currentPercentage: percentage,
+            threshold: thresholds.criticalThreshold,
+            isWarning: false
+        )
+        let shouldNotifyReset = isNotificationEnabled
+            && thresholds.isNotifiedOnReset
+            && state.shouldNotifyReset(currentPercentage: percentage)
+
+        if isNotificationEnabled && shouldNotifyWarning {
+            try? await sendThresholdNotification(
+                percentage: percentage,
+                threshold: .warning,
+                resetTime: resetTime
+            )
+            state.hasWarningBeenNotified = true
+        }
+
+        if isNotificationEnabled && shouldNotifyCritical {
+            try? await sendThresholdNotification(
+                percentage: percentage,
+                threshold: .critical,
+                resetTime: resetTime
+            )
+            state.hasCriticalBeenNotified = true
+        }
+
+        if shouldNotifyReset {
+            try? await sendResetNotification()
+        }
+
+        if percentage < thresholds.warningThreshold {
+            state.hasWarningBeenNotified = false
+        }
+        if percentage < thresholds.criticalThreshold {
+            state.hasCriticalBeenNotified = false
+        }
+
+        state.lastPercentage = percentage
+        try? await settingsRepository.saveNotificationState(state)
+    }
+
     /// Send threshold notification
     func sendThresholdNotification(
         percentage: Double,
@@ -39,9 +98,6 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
     ) async throws {
         // Check if notifications are enabled
         guard await shouldSendNotifications() else { return }
-
-        // Prevent duplicate notifications for same threshold
-        guard notificationTracker[threshold] != true else { return }
 
         let content = UNMutableNotificationContent()
         content.title = threshold.title
@@ -57,16 +113,6 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         )
 
         try await center.add(request)
-        notificationTracker[threshold] = true
-
-        // Save notification state to persistence
-        var state = await settingsRepository.loadNotificationState()
-        if threshold == .warning {
-            state.hasWarningBeenNotified = true
-        } else if threshold == .critical {
-            state.hasCriticalBeenNotified = true
-        }
-        try? await settingsRepository.saveNotificationState(state)
     }
 
     /// Send session reset notification
@@ -86,20 +132,6 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         )
 
         try await center.add(request)
-    }
-
-    /// Reset threshold tracking
-    func resetThresholdTracking(for threshold: UsageThresholdType) async {
-        notificationTracker[threshold] = false
-
-        // Update persisted state
-        var state = await settingsRepository.loadNotificationState()
-        if threshold == .warning {
-            state.hasWarningBeenNotified = false
-        } else if threshold == .critical {
-            state.hasCriticalBeenNotified = false
-        }
-        try? await settingsRepository.saveNotificationState(state)
     }
 
     /// Check system notification permissions
@@ -123,17 +155,6 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // Handle notification tap - open popover
-        NotificationCenter.default.post(
-            name: .openUsagePopover,
-            object: nil
-        )
         completionHandler()
     }
-}
-
-// MARK: - Notification Names
-
-extension Notification.Name {
-    static let openUsagePopover = Notification.Name("openUsagePopover")
 }
