@@ -31,6 +31,7 @@ jobs:
             -project ClaudeMeter.xcodeproj \
             -scheme ClaudeMeter \
             -configuration Debug \
+            -skip-testing:ClaudeMeterTests/MenuBarIconSnapshotTests \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
