@@ -42,6 +42,18 @@ enum Constants {
         static let stalenessThreshold: TimeInterval = 1200
     }
 
+    /// Pacing/risk calculation configuration
+    enum Pacing {
+        /// 5-hour session window duration
+        static let sessionWindow: TimeInterval = 5 * 60 * 60
+
+        /// 7-day weekly window duration
+        static let weeklyWindow: TimeInterval = 7 * 24 * 60 * 60
+
+        /// Ratio threshold for "at risk" status (using faster than sustainable)
+        static let riskThreshold: Double = 1.2
+    }
+
     /// Usage threshold configuration
     enum Thresholds {
         /// Visual status boundaries (fixed, for icon colors)

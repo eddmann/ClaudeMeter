@@ -92,14 +92,16 @@ struct UsagePopoverView: View {
                         UsageCardView(
                             title: "5-Hour Session",
                             usageLimit: usageData.sessionUsage,
-                            icon: "gauge.with.dots.needle.67percent"
+                            icon: "gauge.with.dots.needle.67percent",
+                            windowDuration: Constants.Pacing.sessionWindow
                         )
 
                         // Weekly usage card
                         UsageCardView(
                             title: "Weekly Usage",
                             usageLimit: usageData.weeklyUsage,
-                            icon: "calendar"
+                            icon: "calendar",
+                            windowDuration: Constants.Pacing.weeklyWindow
                         )
 
                         // Sonnet usage card (conditional rendering)
@@ -107,7 +109,8 @@ struct UsagePopoverView: View {
                             UsageCardView(
                                 title: "Weekly Sonnet",
                                 usageLimit: sonnetUsage,
-                                icon: "sparkles"
+                                icon: "sparkles",
+                                windowDuration: Constants.Pacing.weeklyWindow
                             )
                         }
                     }

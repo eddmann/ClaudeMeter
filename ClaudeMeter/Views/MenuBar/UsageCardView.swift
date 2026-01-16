@@ -12,6 +12,7 @@ struct UsageCardView: View {
     let title: String
     let usageLimit: UsageLimit
     let icon: String
+    let windowDuration: TimeInterval?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -62,15 +63,28 @@ struct UsageCardView: View {
             }
             .frame(height: 8)
 
-            // Reset time
+            // Reset time and pacing indicator
             HStack(spacing: 4) {
-                Image(systemName: "clock")
-                    .font(.caption)
-                Text("Resets \(usageLimit.resetDescription)")
-                    .font(.caption)
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.caption)
+                    Text("Resets \(usageLimit.resetDescription)")
+                        .font(.caption)
+                }
+                .help(usageLimit.resetTimeFormatted)
+
+                Spacer()
+
+                if let windowDuration,
+                   usageLimit.isAtRisk(windowDuration: windowDuration) {
+                    Image(systemName: "flame.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .help("You may hit your limit before it resets")
+                        .accessibilityLabel("At risk of hitting limit")
+                }
             }
             .foregroundColor(.secondary)
-            .help(usageLimit.resetTimeFormatted)
         }
         .padding(16)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -91,7 +105,8 @@ struct UsageCardView: View {
                 utilization: 35.0,
                 resetAt: Date().addingTimeInterval(7200)
             ),
-            icon: "gauge.with.dots.needle.67percent"
+            icon: "gauge.with.dots.needle.67percent",
+            windowDuration: Constants.Pacing.sessionWindow
         )
 
         UsageCardView(
@@ -100,7 +115,8 @@ struct UsageCardView: View {
                 utilization: 75.0,
                 resetAt: Date().addingTimeInterval(86400 * 3)
             ),
-            icon: "calendar"
+            icon: "calendar",
+            windowDuration: Constants.Pacing.weeklyWindow
         )
     }
     .padding()
