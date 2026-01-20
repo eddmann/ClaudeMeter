@@ -2,11 +2,6 @@ name: Release ClaudeMeter
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g., 1.0.0)'
-        required: true
-        type: string
 
 jobs:
   build-and-release:
@@ -18,6 +13,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Extract version from changelog
+        id: version
+        run: |
+          VERSION=$(sed -n 's/^## \[\([^]]*\)\].*/\1/p' CHANGELOG.md | head -1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION=$(sed -n 's/^## \[\([^]]*\)\].*/\1/p' CHANGELOG.md | head -1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          CONTENT=$(awk '
+            /^## \[/ {
+              if (found) exit
+              found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -26,13 +46,13 @@ jobs:
       - name: Update version in project
         run: |
           # Update MARKETING_VERSION in project.pbxproj
-          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ inputs.version }}/g" ClaudeMeter.xcodeproj/project.pbxproj
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ steps.version.outputs.version }}/g" ClaudeMeter.xcodeproj/project.pbxproj
 
           # Extract major version number for CURRENT_PROJECT_VERSION (e.g., 1.0.0 -> 1)
-          BUILD_NUMBER=$(echo "${{ inputs.version }}" | sed 's/[^0-9]*\([0-9]*\).*/\1/')
+          BUILD_NUMBER=$(echo "${{ steps.version.outputs.version }}" | sed 's/[^0-9]*\([0-9]*\).*/\1/')
           sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*/CURRENT_PROJECT_VERSION = $BUILD_NUMBER/g" ClaudeMeter.xcodeproj/project.pbxproj
 
-          echo "Updated version to ${{ inputs.version }} (build $BUILD_NUMBER)"
+          echo "Updated version to ${{ steps.version.outputs.version }} (build $BUILD_NUMBER)"
 
       - name: Install Apple certificate
         env:
@@ -136,40 +156,15 @@ jobs:
           cd build/Build/Products/Release
           xattr -cr ClaudeMeter.app
           find ClaudeMeter.app -name '._*' -delete
-          zip -r ../../../../ClaudeMeter-${{ inputs.version }}.zip ClaudeMeter.app
+          zip -r ../../../../ClaudeMeter-${{ steps.version.outputs.version }}.zip ClaudeMeter.app
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: ClaudeMeter v${{ inputs.version }}
-          body: |
-            ## ClaudeMeter v${{ inputs.version }}
-
-            ### Installation
-
-            1. Download `ClaudeMeter-${{ inputs.version }}.zip`
-            2. Unzip and move `ClaudeMeter.app` to Applications
-            3. Double-click to open
-
-            This release is **signed and notarized** by Apple.
-
-            ### Features
-
-            - **Real-time usage monitoring** - Track your 5-hour session, 7-day weekly, and Sonnet-specific usage limits
-            - **Menu bar integration** - Clean, color-coded usage indicator that lives in your macOS menu bar
-            - **Smart notifications** - Configurable alerts at warning and critical thresholds (defaults: 75% and 90%)
-            - **Auto-refresh** - Automatic usage updates every 1-10 minutes (customizable)
-
-            ### Requirements
-
-            - macOS 14.0 (Sonoma) or later
-            - Active Claude.ai account with session key
-
-            ### Disclaimer
-
-            ⚠️ **Unofficial tool** - Not affiliated with Anthropic. Use at your own risk.
-          files: ClaudeMeter-${{ inputs.version }}.zip
+          tag_name: v${{ steps.version.outputs.version }}
+          name: ClaudeMeter v${{ steps.version.outputs.version }}
+          body: ${{ steps.changelog.outputs.content }}
+          files: ClaudeMeter-${{ steps.version.outputs.version }}.zip
           draft: false
           prerelease: false
         env:
@@ -179,18 +174,18 @@ jobs:
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          SHA=$(shasum -a 256 ClaudeMeter-${{ inputs.version }}.zip | cut -d' ' -f1)
+          SHA=$(shasum -a 256 ClaudeMeter-${{ steps.version.outputs.version }}.zip | cut -d' ' -f1)
 
           git clone https://x-access-token:${TAP_TOKEN}@github.com/eddmann/homebrew-tap.git
           cd homebrew-tap
 
-          sed -i '' "s/version \".*\"/version \"${{ inputs.version }}\"/" Casks/claudemeter.rb
+          sed -i '' "s/version \".*\"/version \"${{ steps.version.outputs.version }}\"/" Casks/claudemeter.rb
           sed -i '' "s/sha256 \".*\"/sha256 \"${SHA}\"/" Casks/claudemeter.rb
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/claudemeter.rb
-          git commit -m "chore(claudemeter): update to ${{ inputs.version }}"
+          git commit -m "chore(claudemeter): update to ${{ steps.version.outputs.version }}"
           git push
 
       - name: Cleanup keychain
