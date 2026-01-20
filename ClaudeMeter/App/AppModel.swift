@@ -55,7 +55,7 @@ final class AppModel {
         self.settingsRepository = settingsRepository
         self.keychainRepository = keychainRepository
 
-        let networkService = NetworkService()
+        let networkService = WebViewNetworkService()
         let cacheRepository = CacheRepository()
         let usageService = usageService ?? UsageService(
             networkService: networkService,
@@ -142,8 +142,9 @@ final class AppModel {
         }
 
         let organizations = try await usageService.fetchOrganizations(sessionKey: sessionKey)
-        guard let firstOrg = organizations.first,
-              let orgUUID = firstOrg.organizationUUID else {
+        // Prefer organization with chat capability (Claude.ai usage), fall back to first
+        guard let chatOrg = organizations.first(where: { $0.hasChatCapability }) ?? organizations.first,
+              let orgUUID = chatOrg.organizationUUID else {
             throw AppError.organizationNotFound
         }
 

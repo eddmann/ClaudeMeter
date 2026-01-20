@@ -14,7 +14,7 @@ enum HTTPMethod: String {
 }
 
 /// Protocol for network operations
-protocol NetworkServiceProtocol: Actor {
+protocol NetworkServiceProtocol: Sendable {
     /// Perform a generic HTTP request
     func request<T: Decodable>(
         _ endpoint: String,
