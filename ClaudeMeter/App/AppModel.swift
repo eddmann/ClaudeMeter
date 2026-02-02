@@ -227,4 +227,25 @@ final class AppModel {
         }
     }
 
+    // MARK: - Demo Mode
+
+    #if DEBUG
+    /// Applies demo state for App Store screenshots.
+    /// Skips normal bootstrap and sets state directly.
+    func applyDemoState(
+        usageData: UsageData?,
+        isSetupComplete: Bool,
+        errorMessage: String?,
+        isLoading: Bool
+    ) {
+        self.usageData = usageData
+        self.isSetupComplete = isSetupComplete
+        self.errorMessage = errorMessage
+        self.isLoading = isLoading
+        self.isReady = true
+        self.hasLoadedSettings = true
+        // Don't start refresh loop or wake observer in demo mode
+    }
+    #endif
+
 }

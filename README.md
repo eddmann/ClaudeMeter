@@ -8,6 +8,8 @@ Keep track of your Claude.ai plan usage at a glance.
 
 - **Real-time usage monitoring** - Track your 5-hour session, 7-day weekly, and Sonnet-specific usage limits
 - **Menu bar integration** - Clean, colour-coded usage indicator that lives in your macOS menu bar
+- **Multiple icon styles** - Choose from 6 icon styles: Battery, Circular, Minimal, Segments, Dual Bar, or Gauge
+- **Pacing indicator** - Flame icon warns when you're using Claude faster than sustainable pace
 - **Smart notifications** - Configurable alerts at warning and critical thresholds (defaults: 75% and 90%)
 - **Auto-refresh** - Automatic usage updates every 1 minute, 5 minutes, or 10 minutes
 
@@ -38,6 +40,8 @@ ClaudeMeter sends native macOS notifications when you reach warning or critical 
 </p>
 
 ### Settings
+
+Configure your session key, refresh interval, icon style, and notification thresholds:
 
 <p align="center">
   <img src="docs/settings-general.png" width="380" alt="Settings - General">

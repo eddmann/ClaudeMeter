@@ -17,6 +17,13 @@ struct ClaudeMeterApp: App {
         let model = AppModel()
         _appModel = State(initialValue: model)
         appDelegate.configure(appModel: model)
+
+        #if DEBUG
+        if let demoMode = DemoMode.fromArguments() {
+            appDelegate.configureDemoMode(true)
+            DemoDataFactory.configure(model, for: demoMode)
+        }
+        #endif
     }
 
     var body: some Scene {

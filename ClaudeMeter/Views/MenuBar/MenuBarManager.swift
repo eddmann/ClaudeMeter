@@ -34,6 +34,17 @@ final class MenuBarManager {
         }
     }
 
+    #if DEBUG
+    /// Starts the menu bar without calling bootstrap.
+    /// Used in demo mode when state is pre-configured.
+    func startWithoutBootstrap() {
+        setupStatusItem()
+        createPopover()
+        observeIconUpdates()
+        observeOpenPopoverRequests()
+    }
+    #endif
+
     deinit {
         if let openUsageObserver {
             NotificationCenter.default.removeObserver(openUsageObserver)
