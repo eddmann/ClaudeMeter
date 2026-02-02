@@ -65,8 +65,9 @@ actor UsageService: UsageServiceProtocol {
         } else {
             // Fetch organizations to get ID
             let orgs = try await fetchOrganizations()
-            guard let firstOrg = orgs.first,
-                  let uuid = firstOrg.organizationUUID else {
+            // Prefer organization with chat capability (Claude.ai usage), fall back to first
+            guard let chatOrg = orgs.first(where: { $0.hasChatCapability }) ?? orgs.first,
+                  let uuid = chatOrg.organizationUUID else {
                 throw AppError.organizationNotFound
             }
             organizationId = uuid

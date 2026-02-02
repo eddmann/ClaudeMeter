@@ -16,6 +16,7 @@ enum NetworkError: LocalizedError {
     case httpError(statusCode: Int)
     case decodingFailed(underlyingError: Error)
     case networkUnavailable
+    case timeout
 
     var errorDescription: String? {
         switch self {
@@ -33,6 +34,8 @@ enum NetworkError: LocalizedError {
             return "Failed to parse server response"
         case .networkUnavailable:
             return "No internet connection"
+        case .timeout:
+            return "Request timed out"
         }
     }
 }
