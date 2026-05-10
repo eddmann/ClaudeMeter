@@ -7,15 +7,22 @@
 
 import Foundation
 
-/// Actor-isolated two-tier cache repository
+/// Actor-isolated two-tier cache repository, scoped per account.
 actor CacheRepository: CacheRepositoryProtocol {
-    private var memoryCache: UsageData?
-    private var memoryCacheTimestamp: Date?
+    private struct MemoryEntry {
+        let data: UsageData
+        let timestamp: Date
+    }
+
+    private var memoryCache: [UUID: MemoryEntry] = [:]
     private let cacheTTL: TimeInterval = Constants.Cache.ttl
-    private let diskCacheURL: URL
+    private let cacheDir: URL
     private let publicJSONURL: URL
+    private let fileManager: FileManager
 
     init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+
         let appSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -23,8 +30,7 @@ actor CacheRepository: CacheRepositoryProtocol {
 
         let cacheDir = appSupport.appendingPathComponent("com.claudemeter", isDirectory: true)
         try? fileManager.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-
-        self.diskCacheURL = cacheDir.appendingPathComponent("usage_cache.json")
+        self.cacheDir = cacheDir
 
         // Public JSON export at ~/.claudemeter/usage.json for external tools
         let homeDir = fileManager.homeDirectoryForCurrentUser
@@ -33,57 +39,51 @@ actor CacheRepository: CacheRepositoryProtocol {
         self.publicJSONURL = publicDir.appendingPathComponent("usage.json")
     }
 
-    /// Get cached usage data (respects TTL)
-    func get() async -> UsageData? {
-        // Check in-memory cache first
-        if let cached = memoryCache,
-           let timestamp = memoryCacheTimestamp,
-           Date().timeIntervalSince(timestamp) < cacheTTL {
-            return cached
-        }
+    // MARK: - Public API
 
-        // Memory cache is stale or missing
+    func get(accountId: UUID) async -> UsageData? {
+        if let entry = memoryCache[accountId],
+           Date().timeIntervalSince(entry.timestamp) < cacheTTL {
+            return entry.data
+        }
         return nil
     }
 
-    /// Cache usage data in both memory and disk
-    func set(_ data: UsageData) async {
-        memoryCache = data
-        memoryCacheTimestamp = Date()
-        await saveToDisk(data)
+    func set(_ data: UsageData, accountId: UUID, isPrimary: Bool) async {
+        memoryCache[accountId] = MemoryEntry(data: data, timestamp: Date())
+        await saveToDisk(data, accountId: accountId, isPrimary: isPrimary)
     }
 
-    /// Invalidate memory cache
-    func invalidate() async {
-        memoryCache = nil
-        memoryCacheTimestamp = nil
+    func invalidate(accountId: UUID) async {
+        memoryCache[accountId] = nil
     }
 
-    /// Get last known data from disk (ignores TTL) for offline display
-    func getLastKnown() async -> UsageData? {
-        await loadFromDisk()
+    func getLastKnown(accountId: UUID) async -> UsageData? {
+        loadFromDisk(accountId: accountId)
     }
 
-    // MARK: - Private Methods
+    func purge(accountId: UUID) async {
+        memoryCache[accountId] = nil
+        try? fileManager.removeItem(at: diskURL(for: accountId))
+    }
 
-    private func saveToDisk(_ data: UsageData) async {
+    // MARK: - Private
+
+    private func diskURL(for accountId: UUID) -> URL {
+        cacheDir.appendingPathComponent("usage_\(accountId.uuidString).json")
+    }
+
+    private func saveToDisk(_ data: UsageData, accountId: UUID, isPrimary: Bool) async {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
 
-        guard let jsonData = try? encoder.encode(data) else {
-            return
-        }
+        guard let jsonData = try? encoder.encode(data) else { return }
 
-        do {
-            try jsonData.write(to: diskCacheURL, options: .atomic)
-        } catch {
-            // Silently fail
-        }
+        try? jsonData.write(to: diskURL(for: accountId), options: .atomic)
 
-        // Also write to public location for external tools (statusline scripts, etc.)
-        // Note: Ideally this would be a separate service, but since we always export
-        // when caching fresh data, co-locating here avoids additional coordination.
-        saveToPublicJSON(data)
+        if isPrimary {
+            saveToPublicJSON(data)
+        }
     }
 
     private func saveToPublicJSON(_ data: UsageData) {
@@ -91,29 +91,18 @@ actor CacheRepository: CacheRepositoryProtocol {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
-        guard let jsonData = try? encoder.encode(data) else {
-            return
-        }
-
-        do {
-            try jsonData.write(to: publicJSONURL, options: .atomic)
-        } catch {
-            // Silently fail - external tools location is optional
-        }
+        guard let jsonData = try? encoder.encode(data) else { return }
+        try? jsonData.write(to: publicJSONURL, options: .atomic)
     }
 
-    private func loadFromDisk() async -> UsageData? {
-        guard let jsonData = try? Data(contentsOf: diskCacheURL) else {
+    private func loadFromDisk(accountId: UUID) -> UsageData? {
+        guard let jsonData = try? Data(contentsOf: diskURL(for: accountId)) else {
             return nil
         }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        do {
-            return try decoder.decode(UsageData.self, from: jsonData)
-        } catch {
-            return nil
-        }
+        return try? decoder.decode(UsageData.self, from: jsonData)
     }
 }

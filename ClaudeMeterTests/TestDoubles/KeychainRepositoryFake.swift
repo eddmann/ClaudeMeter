@@ -9,32 +9,28 @@ import Foundation
 @testable import ClaudeMeter
 
 actor KeychainRepositoryFake: KeychainRepositoryProtocol {
-    var sessionKey: String?
-    var hasSessionKey: Bool = false
+    private(set) var keysByAccount: [String: String] = [:]
 
     func save(sessionKey: String, account: String) async throws {
-        self.sessionKey = sessionKey
-        hasSessionKey = true
+        keysByAccount[account] = sessionKey
     }
 
     func retrieve(account: String) async throws -> String {
-        guard let sessionKey else {
+        guard let key = keysByAccount[account] else {
             throw KeychainError.notFound
         }
-        return sessionKey
+        return key
     }
 
     func update(sessionKey: String, account: String) async throws {
-        self.sessionKey = sessionKey
-        hasSessionKey = true
+        keysByAccount[account] = sessionKey
     }
 
     func delete(account: String) async throws {
-        sessionKey = nil
-        hasSessionKey = false
+        keysByAccount[account] = nil
     }
 
     func exists(account: String) async -> Bool {
-        hasSessionKey
+        keysByAccount[account] != nil
     }
 }

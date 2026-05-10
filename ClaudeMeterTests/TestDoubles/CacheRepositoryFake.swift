@@ -9,23 +9,39 @@ import Foundation
 @testable import ClaudeMeter
 
 actor CacheRepositoryFake: CacheRepositoryProtocol {
-    var cachedData: UsageData?
-    var lastKnownData: UsageData?
+    private(set) var cachedByAccount: [UUID: UsageData] = [:]
+    private(set) var lastKnownByAccount: [UUID: UsageData] = [:]
+    private(set) var primaryWrites: [UUID: Bool] = [:]
 
-    func get() async -> UsageData? {
-        cachedData
+    /// Convenience accessor used by older tests that operate on a single implicit account.
+    var cachedData: UsageData? { cachedByAccount.values.first }
+
+    func get(accountId: UUID) async -> UsageData? {
+        cachedByAccount[accountId]
     }
 
-    func set(_ data: UsageData) async {
-        cachedData = data
-        lastKnownData = data
+    func set(_ data: UsageData, accountId: UUID, isPrimary: Bool) async {
+        cachedByAccount[accountId] = data
+        lastKnownByAccount[accountId] = data
+        primaryWrites[accountId] = isPrimary
     }
 
-    func invalidate() async {
-        cachedData = nil
+    func invalidate(accountId: UUID) async {
+        cachedByAccount[accountId] = nil
     }
 
-    func getLastKnown() async -> UsageData? {
-        lastKnownData
+    func getLastKnown(accountId: UUID) async -> UsageData? {
+        lastKnownByAccount[accountId]
+    }
+
+    func purge(accountId: UUID) async {
+        cachedByAccount[accountId] = nil
+        lastKnownByAccount[accountId] = nil
+    }
+
+    /// Test convenience: seed the cache for a specific account without going through `set`.
+    func seed(_ data: UsageData, accountId: UUID) async {
+        cachedByAccount[accountId] = data
+        lastKnownByAccount[accountId] = data
     }
 }
