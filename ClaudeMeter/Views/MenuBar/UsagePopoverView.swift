@@ -31,9 +31,11 @@ struct UsagePopoverView: View {
                     }
                 }) {
                     if appModel.isRefreshing {
+                        // Use controlSize rather than scaleEffect+frame: combining the latter on
+                        // an AppKit-backed ProgressView produces a SwiftUI runtime constraint
+                        // assertion ("max <= min" failing on equal floats) on macOS.
                         ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 20, height: 20)
+                            .controlSize(.small)
                     } else {
                         Image(systemName: "arrow.clockwise")
                     }
