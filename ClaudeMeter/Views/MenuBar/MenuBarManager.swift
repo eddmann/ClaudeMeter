@@ -99,6 +99,7 @@ final class MenuBarManager {
             _ = appModel.usageData
             _ = appModel.isLoading
             _ = appModel.settings.iconStyle
+            _ = appModel.settings.useColoredIcon
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -117,6 +118,7 @@ final class MenuBarManager {
         let isStale = appModel.usageData?.isStale ?? false
         let isLoading = appModel.isLoading
         let style = appModel.settings.iconStyle
+        let useColor = appModel.settings.useColoredIcon
 
         if let cachedImage = iconCache.get(
             percentage: percentage,
@@ -124,7 +126,8 @@ final class MenuBarManager {
             isLoading: isLoading,
             isStale: isStale,
             iconStyle: style,
-            weeklyPercentage: weeklyPercentage
+            weeklyPercentage: weeklyPercentage,
+            useColor: useColor
         ) {
             button.image = cachedImage
             return
@@ -136,7 +139,8 @@ final class MenuBarManager {
             isLoading: isLoading,
             isStale: isStale,
             iconStyle: style,
-            weeklyPercentage: weeklyPercentage
+            weeklyPercentage: weeklyPercentage,
+            useColor: useColor
         )
 
         iconCache.set(
@@ -146,7 +150,8 @@ final class MenuBarManager {
             isLoading: isLoading,
             isStale: isStale,
             iconStyle: style,
-            weeklyPercentage: weeklyPercentage
+            weeklyPercentage: weeklyPercentage,
+            useColor: useColor
         )
 
         button.image = image

@@ -13,6 +13,7 @@ struct CircularGaugeIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     private let lineWidth: CGFloat = 3
     private let size: CGFloat = 18
@@ -21,23 +22,23 @@ struct CircularGaugeIcon: View {
         ZStack {
             // Background circle
             Circle()
-                .stroke(Color.gray.opacity(0.3), lineWidth: lineWidth)
+                .stroke(MenuBarIconColors.track(useColor: useColor), lineWidth: lineWidth)
 
             // Progress arc
             Circle()
                 .trim(from: 0, to: min(percentage / 100, 1.0))
-                .stroke(statusColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(MenuBarIconColors.fill(useColor: useColor, status: status, isStale: isStale), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
 
             // Center percentage or loading indicator
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 7, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 Text("\(Int(percentage))")
                     .font(.system(size: 7, weight: .bold, design: .rounded))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             }
         }
         .frame(width: size, height: size)
@@ -53,10 +54,6 @@ struct CircularGaugeIcon: View {
         .padding(.horizontal, 4)
         .accessibilityLabel("Usage: \(Int(percentage)) percent")
         .accessibilityValue(status.accessibilityDescription)
-    }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
     }
 }
 

@@ -13,17 +13,18 @@ struct MinimalIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     var body: some View {
         HStack(spacing: 2) {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 Text("\(Int(percentage))%")
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             }
 
             if isStale && !isLoading {
@@ -36,10 +37,6 @@ struct MinimalIcon: View {
         .padding(.horizontal, 4)
         .accessibilityLabel("Usage: \(Int(percentage)) percent")
         .accessibilityValue(status.accessibilityDescription)
-    }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
     }
 }
 

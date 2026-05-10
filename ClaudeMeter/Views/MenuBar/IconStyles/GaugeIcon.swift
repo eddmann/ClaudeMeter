@@ -13,18 +13,19 @@ struct GaugeIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     var body: some View {
         HStack(spacing: 4) {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 Image(systemName: symbolName)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(statusColor)
-                    .symbolRenderingMode(.hierarchical)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
+                    .symbolRenderingMode(useColor ? .hierarchical : .monochrome)
             }
 
             if isStale && !isLoading {
@@ -58,10 +59,6 @@ struct GaugeIcon: View {
         default:  // Critical range
             return "gauge.with.dots.needle.100percent"
         }
-    }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
     }
 }
 

@@ -13,6 +13,7 @@ struct SegmentedBarIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     private let segmentCount = 5
     private let segmentWidth: CGFloat = 4
@@ -23,7 +24,7 @@ struct SegmentedBarIcon: View {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 HStack(spacing: segmentSpacing) {
                     ForEach(0..<segmentCount, id: \.self) { index in
@@ -31,7 +32,7 @@ struct SegmentedBarIcon: View {
                         let isActive = percentage >= threshold - (100.0 / Double(segmentCount))
 
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(isActive ? segmentColor(for: index) : Color.gray.opacity(0.3))
+                            .fill(isActive ? segmentColor(for: index) : MenuBarIconColors.track(useColor: useColor))
                             .frame(width: segmentWidth, height: segmentHeight(for: index))
                     }
                 }
@@ -57,9 +58,8 @@ struct SegmentedBarIcon: View {
     }
 
     private func segmentColor(for index: Int) -> Color {
-        if isStale {
-            return .gray
-        }
+        if isStale { return .gray }
+        if !useColor { return .black }
         // Color segments by position to create a gradient effect (green → orange → red)
         // Uses Constants.Thresholds.Status for consistent color boundaries
         let segmentPercentage = Double(index + 1) / Double(segmentCount) * 100
@@ -70,10 +70,6 @@ struct SegmentedBarIcon: View {
         } else {
             return .red
         }
-    }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
     }
 }
 

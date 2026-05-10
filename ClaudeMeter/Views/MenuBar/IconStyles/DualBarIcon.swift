@@ -14,6 +14,7 @@ struct DualBarIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     private let barWidth: CGFloat = 32
     private let barHeight: CGFloat = 5
@@ -24,23 +25,23 @@ struct DualBarIcon: View {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 // Two stacked progress bars
                 VStack(spacing: barSpacing) {
-                    // Session bar (top) - blue/cyan
+                    // Session bar (top): status colour in colour mode, black in monochrome
                     ProgressBar(
                         percentage: percentage,
-                        color: sessionBarColor,
-                        isStale: isStale
+                        color: MenuBarIconColors.fill(useColor: useColor, status: status, isStale: isStale),
+                        useColor: useColor
                     )
                     .frame(width: barWidth, height: barHeight)
 
-                    // Weekly bar (bottom) - purple
+                    // Weekly bar (bottom): purple in colour mode, black in monochrome
                     ProgressBar(
                         percentage: weeklyPercentage,
-                        color: weeklyBarColor,
-                        isStale: isStale
+                        color: MenuBarIconColors.secondary(useColor: useColor, isStale: isStale),
+                        useColor: useColor
                     )
                     .frame(width: barWidth, height: barHeight)
                 }
@@ -48,7 +49,7 @@ struct DualBarIcon: View {
                 // Show session percentage (primary metric)
                 Text("\(Int(percentage))%")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             }
 
             if isStale && !isLoading {
@@ -62,36 +63,20 @@ struct DualBarIcon: View {
         .accessibilityLabel("Session: \(Int(percentage)) percent, Weekly: \(Int(weeklyPercentage)) percent")
         .accessibilityValue(status.accessibilityDescription)
     }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
-    }
-
-    private var sessionBarColor: Color {
-        if isStale { return .gray }
-        // Use status color for session bar
-        return status.color
-    }
-
-    private var weeklyBarColor: Color {
-        if isStale { return .gray }
-        // Purple/violet for weekly to distinguish from session
-        return .purple
-    }
 }
 
 /// Individual progress bar component
 private struct ProgressBar: View {
     let percentage: Double
     let color: Color
-    let isStale: Bool
+    let useColor: Bool
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 // Background
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(MenuBarIconColors.track(useColor: useColor))
 
                 // Fill
                 RoundedRectangle(cornerRadius: 1.5)

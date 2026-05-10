@@ -13,6 +13,7 @@ struct BatteryIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var useColor: Bool = true
 
     private let capsuleWidth: CGFloat = 28
     private let capsuleHeight: CGFloat = 10
@@ -22,14 +23,14 @@ struct BatteryIcon: View {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             } else {
                 // Capsule with gradient fill using mask for proper rounded ends
                 Capsule()
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(MenuBarIconColors.track(useColor: useColor))
                     .overlay(alignment: .leading) {
                         GeometryReader { geo in
-                            fillGradient
+                            MenuBarIconColors.gradient(useColor: useColor, isStale: isStale)
                                 .frame(width: geo.size.width * min(percentage / 100, 1.0))
                         }
                         .clipShape(Capsule())
@@ -37,9 +38,9 @@ struct BatteryIcon: View {
                     .frame(width: capsuleWidth, height: capsuleHeight)
 
                 // Percentage text
-                Text("\(Int(percentage))%") 
+                Text("\(Int(percentage))%")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(MenuBarIconColors.text(useColor: useColor, status: status, isStale: isStale))
             }
 
             if isStale && !isLoading {
@@ -53,27 +54,6 @@ struct BatteryIcon: View {
         .accessibilityLabel("Usage: \(Int(percentage)) percent")
         .accessibilityValue(status.accessibilityDescription)
     }
-
-    private var fillGradient: LinearGradient {
-        if isStale {
-            return LinearGradient(
-                colors: [.gray, .gray],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        }
-
-        // Gradient shows current status position
-        return LinearGradient(
-            colors: [.green, .yellow, .orange, .red],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    private var statusColor: Color {
-        isStale ? .gray : status.color
-    }
 }
 
 #Preview {
@@ -84,6 +64,7 @@ struct BatteryIcon: View {
         BatteryIcon(percentage: 95, status: .critical, isLoading: false, isStale: false)
         BatteryIcon(percentage: 45, status: .safe, isLoading: true, isStale: false)
         BatteryIcon(percentage: 45, status: .safe, isLoading: false, isStale: true)
+        BatteryIcon(percentage: 75, status: .warning, isLoading: false, isStale: false, useColor: false)
     }
     .padding()
 }

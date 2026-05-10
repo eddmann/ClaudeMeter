@@ -69,6 +69,7 @@ struct SettingsView: View {
                 refreshIntervalSection
                 sonnetUsageSection
                 iconStyleSection
+                coloredIconSection
                 launchAtLoginSection
             }
         }
@@ -203,6 +204,28 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
 
             IconStylePicker(selection: $appModel.settings.iconStyle)
+        }
+        .padding()
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Colored Icon Section
+
+    private var coloredIconSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Use Colored Status Icon")
+                    .font(.subheadline)
+                Text("Tint the menu bar icon green/orange/red based on usage. When off, the icon adapts to the system menu bar tint (white in dark mode).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $appModel.settings.useColoredIcon)
+                .labelsHidden()
         }
         .padding()
         .background(.quaternary.opacity(0.3))
