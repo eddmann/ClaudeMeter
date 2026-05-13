@@ -25,7 +25,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
         XCTAssertEqual(notificationCenter.addedRequests.first?.content.userInfo["threshold"] as? String, "warning")
@@ -45,7 +45,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertTrue(notificationCenter.addedRequests.isEmpty)
     }
@@ -66,7 +66,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertTrue(notificationCenter.addedRequests.isEmpty)
     }
@@ -86,8 +86,8 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
     }
@@ -107,7 +107,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 95)
 
-        await service.evaluateThresholds(usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         let sentCritical = notificationCenter.addedRequests.contains { request in
             request.content.userInfo["threshold"] as? String == "critical"
@@ -128,9 +128,9 @@ final class NotificationServiceTests: XCTestCase {
         settings.notificationThresholds.warningThreshold = 75
         settings.notificationThresholds.criticalThreshold = 90
 
-        await service.evaluateThresholds(usageData: makeUsageData(percentage: 80), settings: settings)
-        await service.evaluateThresholds(usageData: makeUsageData(percentage: 50), settings: settings)
-        await service.evaluateThresholds(usageData: makeUsageData(percentage: 80), settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 50), settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 2)
     }
@@ -151,7 +151,7 @@ final class NotificationServiceTests: XCTestCase {
         state.lastPercentage = 50
         try? await settingsRepository.saveNotificationState(state)
 
-        await service.evaluateThresholds(usageData: makeUsageData(percentage: 0), settings: settings)
+        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
         XCTAssertEqual(notificationCenter.addedRequests.first?.content.categoryIdentifier, "usage.reset")

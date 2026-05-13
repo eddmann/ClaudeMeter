@@ -23,20 +23,26 @@ final class NotificationServiceSpy: NotificationServiceProtocol {
         return true
     }
 
-    func evaluateThresholds(usageData: UsageData, settings: AppSettings) async {
+    private(set) var lastEvaluatedAccountLabel: String?
+    private(set) var sentThresholdAccountLabel: String?
+
+    func evaluateThresholds(accountLabel: String, usageData: UsageData, settings: AppSettings) async {
         lastEvaluatedUsageData = usageData
+        lastEvaluatedAccountLabel = accountLabel
     }
 
     func sendThresholdNotification(
+        accountLabel: String?,
         percentage: Double,
         threshold: UsageThresholdType,
         resetTime: Date
     ) async throws {
+        sentThresholdAccountLabel = accountLabel
         sentThresholdPercentage = percentage
         sentThresholdType = threshold
     }
 
-    func sendResetNotification() async throws {}
+    func sendResetNotification(accountLabel: String?) async throws {}
 
     func checkNotificationPermissions() async -> Bool {
         hasPermission

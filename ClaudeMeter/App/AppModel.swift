@@ -142,6 +142,7 @@ final class AppModel {
             self.accountStates[accountId] = done
 
             await notificationService.evaluateThresholds(
+                accountLabel: account.label,
                 usageData: data,
                 settings: settings
             )
@@ -265,6 +266,7 @@ final class AppModel {
 
     func sendTestNotification() async throws {
         try await notificationService.sendThresholdNotification(
+            accountLabel: nil,  // Test notification isn't tied to a specific account.
             percentage: 85.0,
             threshold: .warning,
             resetTime: Date().addingTimeInterval(3600)

@@ -49,19 +49,23 @@ protocol NotificationServiceProtocol {
 
     /// Evaluate thresholds and send notifications for new usage data
     func evaluateThresholds(
+        accountLabel: String,
         usageData: UsageData,
         settings: AppSettings
     ) async
 
-    /// Send threshold notification
+    /// Send threshold notification. When `accountLabel` is non-nil, the title is prefixed with
+    /// the label (e.g. "Client X — Usage Warning") so multi-account users see which account
+    /// the alert refers to. Pass nil for global/test notifications.
     func sendThresholdNotification(
+        accountLabel: String?,
         percentage: Double,
         threshold: UsageThresholdType,
         resetTime: Date
     ) async throws
 
-    /// Send session reset notification
-    func sendResetNotification() async throws
+    /// Send session reset notification. `accountLabel` is prefixed to the title when non-nil.
+    func sendResetNotification(accountLabel: String?) async throws
 
     /// Check system notification permissions
     func checkNotificationPermissions() async -> Bool
