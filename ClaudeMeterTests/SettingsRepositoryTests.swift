@@ -67,10 +67,11 @@ final class SettingsRepositoryTests: XCTestCase {
         defer { userDefaults?.removePersistentDomain(forName: suiteName) }
 
         let repository = SettingsRepository(userDefaults: userDefaults ?? .standard)
+        let accountId = UUID()
         var state = NotificationState()
-        state.hasWarningBeenNotified = true
-        state.hasCriticalBeenNotified = true
-        state.lastPercentage = 85
+        state.hasWarningBeenNotified[accountId] = true
+        state.hasCriticalBeenNotified[accountId] = true
+        state.lastSessionPercentageByAccount[accountId] = 85
 
         try await repository.saveNotificationState(state)
         let loaded = await repository.loadNotificationState()

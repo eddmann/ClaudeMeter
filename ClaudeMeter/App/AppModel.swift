@@ -142,6 +142,7 @@ final class AppModel {
             self.accountStates[accountId] = done
 
             await notificationService.evaluateThresholds(
+                accountId: account.id,
                 accountLabel: account.label,
                 usageData: data,
                 settings: settings

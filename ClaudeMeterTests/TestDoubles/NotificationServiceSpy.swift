@@ -24,11 +24,18 @@ final class NotificationServiceSpy: NotificationServiceProtocol {
     }
 
     private(set) var lastEvaluatedAccountLabel: String?
+    private(set) var lastEvaluatedAccountId: UUID?
     private(set) var sentThresholdAccountLabel: String?
 
-    func evaluateThresholds(accountLabel: String, usageData: UsageData, settings: AppSettings) async {
+    func evaluateThresholds(
+        accountId: UUID,
+        accountLabel: String,
+        usageData: UsageData,
+        settings: AppSettings
+    ) async {
         lastEvaluatedUsageData = usageData
         lastEvaluatedAccountLabel = accountLabel
+        lastEvaluatedAccountId = accountId
     }
 
     func sendThresholdNotification(

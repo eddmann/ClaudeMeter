@@ -34,8 +34,9 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         return granted
     }
 
-    /// Evaluate usage thresholds and send notifications
+    /// Evaluate usage thresholds and send notifications for a specific account.
     func evaluateThresholds(
+        accountId: UUID,
         accountLabel: String,
         usageData: UsageData,
         settings: AppSettings
@@ -49,18 +50,20 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         let isNotificationEnabled = settings.hasNotificationsEnabled && hasPermission
 
         let shouldNotifyWarning = state.shouldNotify(
+            accountId: accountId,
             currentPercentage: percentage,
             threshold: thresholds.warningThreshold,
             isWarning: true
         )
         let shouldNotifyCritical = state.shouldNotify(
+            accountId: accountId,
             currentPercentage: percentage,
             threshold: thresholds.criticalThreshold,
             isWarning: false
         )
         let shouldNotifyReset = isNotificationEnabled
             && thresholds.isNotifiedOnReset
-            && state.shouldNotifyReset(currentPercentage: percentage)
+            && state.shouldNotifyReset(accountId: accountId, currentPercentage: percentage)
 
         if isNotificationEnabled && shouldNotifyWarning {
             try? await sendThresholdNotification(
@@ -69,7 +72,7 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
                 threshold: .warning,
                 resetTime: resetTime
             )
-            state.hasWarningBeenNotified = true
+            state.hasWarningBeenNotified[accountId] = true
         }
 
         if isNotificationEnabled && shouldNotifyCritical {
@@ -79,21 +82,24 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
                 threshold: .critical,
                 resetTime: resetTime
             )
-            state.hasCriticalBeenNotified = true
+            state.hasCriticalBeenNotified[accountId] = true
         }
 
         if shouldNotifyReset {
             try? await sendResetNotification(accountLabel: accountLabel)
         }
 
+        // Re-arm the per-account "notified" flags when utilization drops below the threshold,
+        // so the *next* crossing fires again. Without this the dedupe would be permanent
+        // across the whole window.
         if percentage < thresholds.warningThreshold {
-            state.hasWarningBeenNotified = false
+            state.hasWarningBeenNotified[accountId] = false
         }
         if percentage < thresholds.criticalThreshold {
-            state.hasCriticalBeenNotified = false
+            state.hasCriticalBeenNotified[accountId] = false
         }
 
-        state.lastPercentage = percentage
+        state.lastSessionPercentageByAccount[accountId] = percentage
         try? await settingsRepository.saveNotificationState(state)
     }
 

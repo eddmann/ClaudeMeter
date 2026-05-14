@@ -10,6 +10,9 @@ import XCTest
 
 @MainActor
 final class NotificationServiceTests: XCTestCase {
+    private let accountId = UUID()
+    private let otherAccountId = UUID()
+
     func test_userReceivesWarningNotificationWhenUsageCrossesThreshold() async {
         let settingsRepository = SettingsRepositoryFake()
         let notificationCenter = NotificationCenterSpy()
@@ -25,7 +28,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
         XCTAssertEqual(notificationCenter.addedRequests.first?.content.userInfo["threshold"] as? String, "warning")
@@ -45,7 +48,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertTrue(notificationCenter.addedRequests.isEmpty)
     }
@@ -66,7 +69,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertTrue(notificationCenter.addedRequests.isEmpty)
     }
@@ -86,8 +89,8 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 80)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
     }
@@ -107,7 +110,7 @@ final class NotificationServiceTests: XCTestCase {
 
         let usageData = makeUsageData(percentage: 95)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: usageData, settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: usageData, settings: settings)
 
         let sentCritical = notificationCenter.addedRequests.contains { request in
             request.content.userInfo["threshold"] as? String == "critical"
@@ -128,9 +131,9 @@ final class NotificationServiceTests: XCTestCase {
         settings.notificationThresholds.warningThreshold = 75
         settings.notificationThresholds.criticalThreshold = 90
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 50), settings: settings)
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 50), settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 80), settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 2)
     }
@@ -148,13 +151,66 @@ final class NotificationServiceTests: XCTestCase {
         settings.notificationThresholds.isNotifiedOnReset = true
 
         var state = NotificationState()
-        state.lastPercentage = 50
+        state.lastSessionPercentageByAccount[accountId] = 50
         try? await settingsRepository.saveNotificationState(state)
 
-        await service.evaluateThresholds(accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
         XCTAssertEqual(notificationCenter.addedRequests.first?.content.categoryIdentifier, "usage.reset")
+    }
+
+    func test_resetNotificationFiresExactlyOncePerReset() async {
+        // Repro for the multi-account reset spam bug: with per-account state, repeated
+        // refreshes while utilization stays at 0 must NOT keep firing the reset notification.
+        let settingsRepository = SettingsRepositoryFake()
+        let notificationCenter = NotificationCenterSpy()
+        let service = NotificationService(
+            settingsRepository: settingsRepository,
+            notificationCenter: notificationCenter
+        )
+
+        var settings = AppSettings.default
+        settings.hasNotificationsEnabled = true
+        settings.notificationThresholds.isNotifiedOnReset = true
+
+        var state = NotificationState()
+        state.lastSessionPercentageByAccount[accountId] = 50
+        try? await settingsRepository.saveNotificationState(state)
+
+        // First refresh: usage drops to 0 → reset fires.
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
+        // Subsequent refreshes while usage stays at 0 → no more reset notifications.
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
+
+        XCTAssertEqual(notificationCenter.addedRequests.count, 1)
+    }
+
+    func test_oneAccountActive_doesNotTriggerResetSpamOnAnotherAccountAtZero() async {
+        // Direct repro for the multi-account false-positive: with the old global lastPercentage,
+        // every refresh of account B (which sits at 0) would re-detect a "reset" because
+        // account A had just bumped lastPercentage back to a non-zero value.
+        let settingsRepository = SettingsRepositoryFake()
+        let notificationCenter = NotificationCenterSpy()
+        let service = NotificationService(
+            settingsRepository: settingsRepository,
+            notificationCenter: notificationCenter
+        )
+
+        var settings = AppSettings.default
+        settings.hasNotificationsEnabled = true
+        settings.notificationThresholds.isNotifiedOnReset = true
+
+        // Three rounds of: A at 50%, B at 0%. No reset notification should ever fire for B
+        // (it never transitioned from > 0 to 0 — it's been at 0 the entire time).
+        for _ in 0..<3 {
+            await service.evaluateThresholds(accountId: accountId, accountLabel: "A", usageData: makeUsageData(percentage: 50), settings: settings)
+            await service.evaluateThresholds(accountId: otherAccountId, accountLabel: "B", usageData: makeUsageData(percentage: 0), settings: settings)
+        }
+
+        let resetNotifs = notificationCenter.addedRequests.filter { $0.content.categoryIdentifier == "usage.reset" }
+        XCTAssertEqual(resetNotifs.count, 0, "Account B was never above 0; no reset notif should fire for it")
     }
 }
 

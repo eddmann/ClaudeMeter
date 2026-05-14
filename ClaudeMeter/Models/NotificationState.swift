@@ -7,52 +7,69 @@
 
 import Foundation
 
-/// Tracks which notification thresholds have been triggered
+/// Tracks notification state per Claude account. Earlier versions kept these as global flags,
+/// which produced spurious notifications in a multi-account setup: account A bumping
+/// `lastPercentage` up to 50 would then make account B (still at 0) repeatedly satisfy the
+/// "reset detected" check (`lastPercentage > 0 && current == 0`) on every refresh cycle.
 struct NotificationState: Codable, Equatable, Sendable {
-    var hasWarningBeenNotified: Bool = false
-    var hasCriticalBeenNotified: Bool = false
+    /// Has the warning threshold notification been fired since utilization last dropped below
+    /// the threshold, keyed by account id.
+    var hasWarningBeenNotified: [UUID: Bool] = [:]
 
-    /// Last known usage percentage to detect reset
-    var lastPercentage: Double = 0
+    /// Has the critical threshold notification been fired since utilization last dropped below
+    /// the threshold, keyed by account id.
+    var hasCriticalBeenNotified: [UUID: Bool] = [:]
+
+    /// Last observed session utilization (0-100) per account — used to detect the 5-hour
+    /// session reset (transition from > 0 to == 0).
+    var lastSessionPercentageByAccount: [UUID: Double] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case hasWarningBeenNotified = "warning_notified"
-        case hasCriticalBeenNotified = "critical_notified"
-        case lastPercentage = "last_percentage"
+        case hasWarningBeenNotified = "warning_notified_by_account"
+        case hasCriticalBeenNotified = "critical_notified_by_account"
+        case lastSessionPercentageByAccount = "last_session_percentage_by_account"
+    }
+
+    init(
+        hasWarningBeenNotified: [UUID: Bool] = [:],
+        hasCriticalBeenNotified: [UUID: Bool] = [:],
+        lastSessionPercentageByAccount: [UUID: Double] = [:]
+    ) {
+        self.hasWarningBeenNotified = hasWarningBeenNotified
+        self.hasCriticalBeenNotified = hasCriticalBeenNotified
+        self.lastSessionPercentageByAccount = lastSessionPercentageByAccount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasWarningBeenNotified = try container.decodeIfPresent([UUID: Bool].self, forKey: .hasWarningBeenNotified) ?? [:]
+        hasCriticalBeenNotified = try container.decodeIfPresent([UUID: Bool].self, forKey: .hasCriticalBeenNotified) ?? [:]
+        lastSessionPercentageByAccount = try container.decodeIfPresent([UUID: Double].self, forKey: .lastSessionPercentageByAccount) ?? [:]
+        // Legacy single-account fields (warning_notified, critical_notified, last_percentage)
+        // are intentionally dropped on upgrade — they were the source of the cross-account
+        // false-positive reset spam this struct was rewritten to fix. There's no safe migration
+        // path (we can't attribute a global percentage to a specific account), so the
+        // per-account dictionaries simply start empty after upgrade.
     }
 }
 
 extension NotificationState {
-    /// Reset tracking when usage drops below thresholds
-    mutating func resetIfNeeded(currentPercentage: Double, warningThreshold: Double, criticalThreshold: Double) {
-        if currentPercentage < warningThreshold {
-            hasWarningBeenNotified = false
-        }
-        if currentPercentage < criticalThreshold {
-            hasCriticalBeenNotified = false
-        }
-        lastPercentage = currentPercentage
-    }
-
-    /// Check if threshold should trigger notification
+    /// Check if a warning- or critical-threshold notification should fire for this account.
     func shouldNotify(
+        accountId: UUID,
         currentPercentage: Double,
         threshold: Double,
         isWarning: Bool
     ) -> Bool {
-        // Check if crossing warning threshold
-        if isWarning && !hasWarningBeenNotified && currentPercentage >= threshold {
-            return true
-        }
-        // Check if crossing critical threshold
-        if !isWarning && !hasCriticalBeenNotified && currentPercentage >= threshold {
-            return true
-        }
-        return false
+        let alreadyNotified = isWarning
+            ? (hasWarningBeenNotified[accountId] ?? false)
+            : (hasCriticalBeenNotified[accountId] ?? false)
+        return !alreadyNotified && currentPercentage >= threshold
     }
 
-    /// Check if session reset should trigger notification
-    func shouldNotifyReset(currentPercentage: Double) -> Bool {
-        lastPercentage > 0 && currentPercentage == 0
+    /// Detect the 5-hour session reset for this account (utilization went from > 0 to 0).
+    func shouldNotifyReset(accountId: UUID, currentPercentage: Double) -> Bool {
+        let last = lastSessionPercentageByAccount[accountId] ?? 0
+        return last > 0 && currentPercentage == 0
     }
 }
