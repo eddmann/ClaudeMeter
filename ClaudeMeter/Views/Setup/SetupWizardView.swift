@@ -8,10 +8,13 @@
 import SwiftUI
 import AppKit
 
-/// Setup wizard view for initial configuration
+/// Setup wizard view used for the very first account, and for adding additional accounts.
 struct SetupWizardView: View {
     @Bindable var appModel: AppModel
+    /// Called when the wizard finishes successfully (used to dismiss the popover/sheet).
+    var onComplete: (() -> Void)? = nil
 
+    @State private var labelInput: String = ""
     @State private var sessionKeyInput: String = ""
     @State private var isValidating: Bool = false
     @State private var errorMessage: String?
@@ -19,7 +22,6 @@ struct SetupWizardView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            // Header
             VStack(spacing: 8) {
                 if let appIcon = NSImage(named: NSImage.applicationIconName) {
                     Image(nsImage: appIcon)
@@ -31,7 +33,7 @@ struct SetupWizardView: View {
                         .foregroundColor(.blue)
                 }
 
-                Text("Welcome to ClaudeMeter")
+                Text(appModel.settings.accounts.isEmpty ? "Welcome to ClaudeMeter" : "Add Another Account")
                     .font(.title)
                     .fontWeight(.bold)
 
@@ -41,7 +43,21 @@ struct SetupWizardView: View {
             }
             .padding(.top, 32)
 
-            // Session Key Input
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Account Label")
+                    .font(.headline)
+
+                TextField("e.g. Personal, Client X", text: $labelInput)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isValidating)
+                    .accessibilityLabel("Account label")
+
+                Text("Used to distinguish this account in the menu bar")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 32)
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Claude Session Key")
                     .font(.headline)
@@ -50,13 +66,11 @@ struct SetupWizardView: View {
                     .textFieldStyle(.roundedBorder)
                     .disabled(isValidating)
                     .accessibilityLabel("Session key input field")
-                    .accessibilityHint("Enter your Claude session key starting with sk-ant-")
 
                 Text("Find your session key in Claude.ai browser cookies")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                // Format validation indicator
                 if !sessionKeyInput.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: isFormatValid ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -69,8 +83,7 @@ struct SetupWizardView: View {
             }
             .padding(.horizontal, 32)
 
-            // Error Message
-            if let errorMessage = errorMessage {
+            if let errorMessage {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
@@ -85,12 +98,11 @@ struct SetupWizardView: View {
                 .accessibilityLabel("Error: \(errorMessage)")
             }
 
-            // Success Message
             if hasValidationSucceeded {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
-                    Text("Setup complete! Launching ClaudeMeter...")
+                    Text("Account added!")
                         .font(.callout)
                         .foregroundColor(.green)
                 }
@@ -102,11 +114,8 @@ struct SetupWizardView: View {
 
             Spacer()
 
-            // Continue Button
             Button(action: {
-                Task {
-                    await validateAndSave()
-                }
+                Task { await validateAndSave() }
             }) {
                 HStack {
                     Text(isValidating ? "Validating..." : "Continue")
@@ -119,10 +128,10 @@ struct SetupWizardView: View {
             .padding(.horizontal, 32)
             .padding(.bottom, 32)
             .accessibilityLabel(isValidating ? "Validating session key" : "Continue with setup")
-            .accessibilityHint("Validates your session key and completes setup")
         }
-        .frame(width: 360, height: 420)
+        .frame(width: 360, height: 460)
     }
+
     // MARK: - Validation
 
     private var isFormatValid: Bool {
@@ -143,9 +152,14 @@ struct SetupWizardView: View {
         hasValidationSucceeded = false
 
         do {
-            let isValid = try await appModel.validateAndSaveSessionKey(sessionKeyInput)
-            if isValid {
+            let resolvedLabel = labelInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            let account = try await appModel.addAccount(label: resolvedLabel, sessionKey: sessionKeyInput)
+            if account != nil {
                 hasValidationSucceeded = true
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    onComplete?()
+                }
             } else {
                 errorMessage = "Session key is invalid or expired"
             }

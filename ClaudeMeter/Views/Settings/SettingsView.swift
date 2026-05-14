@@ -13,16 +13,14 @@ import AppKit
 struct SettingsView: View {
     @Bindable var appModel: AppModel
 
-    @State private var sessionKey: String = ""
-    @State private var isSessionKeyShown: Bool = false
-    @State private var isValidatingSessionKey: Bool = false
-    @State private var sessionKeyValidationMessage: String?
-    @State private var hasSessionKeyValidationSucceeded: Bool = false
-
     @State private var isSendingTestNotification: Bool = false
     @State private var testNotificationMessage: String?
     @State private var hasTestNotificationSucceeded: Bool = false
     @State private var notificationError: String?
+
+    @State private var addAccountSheetPresented: Bool = false
+    @State private var editingAccount: ClaudeAccount?
+    @State private var pendingRemoval: ClaudeAccount?
 
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
 
@@ -35,9 +33,9 @@ struct SettingsView: View {
             aboutTab
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 500)
+        .frame(width: 520)
         .onAppear {
-            loadSettings()
+            Task { await updateNotificationStatus() }
         }
         .onChange(of: appModel.settings.hasNotificationsEnabled) { _, newValue in
             Task {
@@ -50,90 +48,104 @@ struct SettingsView: View {
         .onChange(of: launchAtLogin) { _, newValue in
             updateLaunchAtLogin(newValue)
         }
+        .sheet(isPresented: $addAccountSheetPresented) {
+            SetupWizardView(appModel: appModel) {
+                addAccountSheetPresented = false
+            }
+        }
+        .sheet(item: $editingAccount) { account in
+            EditAccountSheet(
+                appModel: appModel,
+                account: account,
+                onClose: { editingAccount = nil }
+            )
+        }
+        .alert(
+            "Remove account?",
+            isPresented: Binding(
+                get: { pendingRemoval != nil },
+                set: { if !$0 { pendingRemoval = nil } }
+            ),
+            presenting: pendingRemoval
+        ) { account in
+            Button("Remove", role: .destructive) {
+                Task {
+                    try? await appModel.removeAccount(account.id)
+                    pendingRemoval = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingRemoval = nil
+            }
+        } message: { account in
+            Text("\(account.label) will be removed and its session key deleted from the Keychain.")
+        }
     }
 
     // MARK: - General Tab
 
     private var generalTab: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if !appModel.isReady {
-                VStack {
-                    Spacer()
-                    ProgressView("Loading settings...")
-                        .controlSize(.large)
-                    Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if !appModel.isReady {
+                    VStack {
+                        Spacer()
+                        ProgressView("Loading settings...")
+                            .controlSize(.large)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    accountsSection
+                    refreshIntervalSection
+                    sonnetUsageSection
+                    iconStyleSection
+                    launchAtLoginSection
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                sessionKeySection
-                refreshIntervalSection
-                sonnetUsageSection
-                iconStyleSection
-                launchAtLoginSection
             }
+            .padding(24)
         }
-        .padding(24)
     }
 
-    // MARK: - Session Key Section
+    // MARK: - Accounts Section
 
-    private var sessionKeySection: some View {
+    private var accountsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Session Key")
-                .font(.subheadline)
+            HStack {
+                Text("Claude Accounts")
+                    .font(.subheadline)
+                Spacer()
+                Button {
+                    addAccountSheetPresented = true
+                } label: {
+                    Label("Add Account", systemImage: "plus")
+                }
+                .controlSize(.small)
+            }
 
-            Text("Your Claude.ai session key authenticates API requests. Find this in your browser's cookies.")
+            Text("Each account gets its own menu bar item.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack {
-                if isSessionKeyShown {
-                    TextField("sk-ant-...", text: $sessionKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                } else {
-                    SecureField("sk-ant-...", text: $sessionKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
+            if appModel.settings.accounts.isEmpty {
+                HStack {
+                    Image(systemName: "person.crop.circle.badge.plus")
+                        .foregroundStyle(.secondary)
+                    Text("No accounts configured. Click \"Add Account\" to begin.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
-
-                Button(action: { isSessionKeyShown.toggle() }) {
-                    Image(systemName: isSessionKeyShown ? "eye.slash" : "eye")
-                }
-                .buttonStyle(.borderless)
-                .help(isSessionKeyShown ? "Hide session key" : "Show session key")
-
-                if !sessionKey.isEmpty {
-                    Button(action: clearSessionKey) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Clear session key")
-                }
-            }
-
-            HStack {
-                Button("Validate & Save") {
-                    Task {
-                        await validateAndSaveSessionKey()
+                .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(appModel.settings.accounts) { account in
+                        AccountRow(
+                            account: account,
+                            onEdit: { editingAccount = account },
+                            onRemove: { pendingRemoval = account }
+                        )
                     }
                 }
-                .controlSize(.small)
-                .disabled(sessionKey.isEmpty || isValidatingSessionKey)
-
-                if isValidatingSessionKey {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-
-                if let message = sessionKeyValidationMessage {
-                    Label(message, systemImage: hasSessionKeyValidationSucceeded ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(hasSessionKeyValidationSucceeded ? .green : .red)
-                }
-
-                Spacer()
             }
         }
         .padding()
@@ -152,9 +164,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
             Picker("", selection: $appModel.settings.refreshInterval) {
                 Text("1 minute").tag(60.0)
                 Text("5 minutes").tag(300.0)
@@ -180,9 +190,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
             Toggle("", isOn: $appModel.settings.isSonnetUsageShown)
                 .labelsHidden()
         }
@@ -197,11 +205,9 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Menu Bar Icon Style")
                 .font(.subheadline)
-
             Text("Choose how the usage indicator appears in your menu bar")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-
             IconStylePicker(selection: $appModel.settings.iconStyle)
         }
         .padding()
@@ -220,9 +226,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
             Toggle("", isOn: $launchAtLogin)
                 .labelsHidden()
         }
@@ -259,13 +263,10 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-
                 Spacer()
-
                 Toggle("", isOn: $appModel.settings.hasNotificationsEnabled)
                     .labelsHidden()
             }
-
             if let error = notificationError {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -273,7 +274,6 @@ struct SettingsView: View {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-
                     Button("Open Settings") {
                         openSystemNotificationSettings()
                     }
@@ -298,22 +298,17 @@ struct SettingsView: View {
                         .foregroundStyle(.orange)
                         .font(.subheadline.monospacedDigit())
                 }
-
                 Slider(
                     value: warningThresholdBinding,
                     in: Constants.Thresholds.Notification.warningMin...Constants.Thresholds.Notification.warningMax,
                     step: Constants.Thresholds.Notification.step
                 )
                 .tint(.orange)
-
                 Text("Get notified when session usage reaches this percentage")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
-            Divider()
-                .padding(.vertical, 4)
-
+            Divider().padding(.vertical, 4)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Critical Threshold")
@@ -323,18 +318,15 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                         .font(.subheadline.monospacedDigit())
                 }
-
                 Slider(
                     value: criticalThresholdBinding,
                     in: Constants.Thresholds.Notification.criticalMin...Constants.Thresholds.Notification.criticalMax,
                     step: Constants.Thresholds.Notification.step
                 )
                 .tint(.red)
-
                 Text("Get urgent notification when session usage reaches this percentage")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
                 if criticalThresholdValue <= warningThresholdValue {
                     Label("Critical threshold must be higher than warning", systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -356,9 +348,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
             Toggle("", isOn: isNotifiedOnResetBinding)
                 .labelsHidden()
         }
@@ -370,24 +360,18 @@ struct SettingsView: View {
     private var testNotificationSection: some View {
         HStack {
             Button("Send Test Notification") {
-                Task {
-                    await sendTestNotification()
-                }
+                Task { await sendTestNotification() }
             }
             .controlSize(.small)
             .disabled(isSendingTestNotification)
-
             if isSendingTestNotification {
-                ProgressView()
-                    .controlSize(.small)
+                ProgressView().controlSize(.small)
             }
-
             if let message = testNotificationMessage {
                 Label(message, systemImage: hasTestNotificationSucceeded ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(hasTestNotificationSucceeded ? .green : .red)
             }
-
             Spacer()
         }
         .padding()
@@ -418,19 +402,13 @@ struct SettingsView: View {
         )
     }
 
-    private var warningThresholdValue: Double {
-        appModel.settings.notificationThresholds.warningThreshold
-    }
-
-    private var criticalThresholdValue: Double {
-        appModel.settings.notificationThresholds.criticalThreshold
-    }
+    private var warningThresholdValue: Double { appModel.settings.notificationThresholds.warningThreshold }
+    private var criticalThresholdValue: Double { appModel.settings.notificationThresholds.criticalThreshold }
 
     // MARK: - About Tab
 
     private var aboutTab: some View {
         VStack(spacing: 24) {
-            // App Icon
             if let appIconImage = NSImage(named: "AppIcon") {
                 Image(nsImage: appIconImage)
                     .resizable()
@@ -442,12 +420,9 @@ struct SettingsView: View {
                     .font(.system(size: 80))
                     .foregroundStyle(.blue)
             }
-
-            // App Name & Version
             VStack(spacing: 8) {
                 Text("ClaudeMeter")
                     .font(.system(size: 28, weight: .semibold))
-
                 if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                     Text("Version \(version) (\(build))")
@@ -455,19 +430,14 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            // Copyright
             VStack(spacing: 4) {
                 Text("© 2025 Edd Mann")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
                 Text("Monitor your Claude.ai usage limits.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
-            // Project Link
             Link(destination: URL(string: "https://github.com/eddmann/ClaudeMeter")!) {
                 HStack {
                     Image(systemName: "link.circle.fill")
@@ -485,13 +455,6 @@ struct SettingsView: View {
 
     // MARK: - Actions
 
-    private func loadSettings() {
-        Task { @MainActor in
-            sessionKey = await appModel.loadSessionKey() ?? ""
-            await updateNotificationStatus()
-        }
-    }
-
     @MainActor
     private func updateNotificationStatus() async {
         let hasPermission = await appModel.checkNotificationPermissions()
@@ -505,59 +468,6 @@ struct SettingsView: View {
         }
     }
 
-    @MainActor
-    private func validateAndSaveSessionKey() async {
-        guard !sessionKey.isEmpty else {
-            sessionKeyValidationMessage = "Session key cannot be empty"
-            hasSessionKeyValidationSucceeded = false
-            return
-        }
-
-        isValidatingSessionKey = true
-        sessionKeyValidationMessage = nil
-        hasSessionKeyValidationSucceeded = false
-
-        do {
-            let isValid = try await appModel.validateAndSaveSessionKey(sessionKey)
-
-            if isValid {
-                sessionKeyValidationMessage = "Session key saved"
-                hasSessionKeyValidationSucceeded = true
-
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(2))
-                    sessionKeyValidationMessage = nil
-                    hasSessionKeyValidationSucceeded = false
-                }
-            } else {
-                sessionKeyValidationMessage = "Session key validation failed"
-                hasSessionKeyValidationSucceeded = false
-            }
-        } catch let error as SessionKeyError {
-            sessionKeyValidationMessage = error.localizedDescription
-            hasSessionKeyValidationSucceeded = false
-        } catch {
-            sessionKeyValidationMessage = "Validation failed: \(error.localizedDescription)"
-            hasSessionKeyValidationSucceeded = false
-        }
-
-        isValidatingSessionKey = false
-    }
-
-    private func clearSessionKey() {
-        Task { @MainActor in
-            do {
-                try await appModel.clearSessionKey()
-                sessionKey = ""
-                sessionKeyValidationMessage = nil
-                hasSessionKeyValidationSucceeded = false
-            } catch {
-                sessionKeyValidationMessage = "Failed to clear: \(error.localizedDescription)"
-                hasSessionKeyValidationSucceeded = false
-            }
-        }
-    }
-
     private func updateLaunchAtLogin(_ enabled: Bool) {
         do {
             if enabled {
@@ -566,7 +476,6 @@ struct SettingsView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            // Revert the toggle if it failed
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
     }
@@ -589,14 +498,9 @@ struct SettingsView: View {
                     return
                 }
             }
-
-            // Send test notification
             try await appModel.sendTestNotification()
-
             testNotificationMessage = "Test notification sent!"
             hasTestNotificationSucceeded = true
-
-            // Clear message after 2 seconds
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2))
                 testNotificationMessage = nil
@@ -606,7 +510,6 @@ struct SettingsView: View {
             testNotificationMessage = "Failed: \(error.localizedDescription)"
             hasTestNotificationSucceeded = false
         }
-
         isSendingTestNotification = false
     }
 
@@ -614,5 +517,165 @@ struct SettingsView: View {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
             NSWorkspace.shared.open(url)
         }
+    }
+}
+
+// MARK: - Account Row
+
+private struct AccountRow: View {
+    let account: ClaudeAccount
+    let onEdit: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(.tertiary)
+                    .frame(width: 28, height: 28)
+                Text(account.menuBarInitial)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.label)
+                    .font(.callout)
+                    .fontWeight(.medium)
+                if let orgId = account.organizationId {
+                    Text("org: \(orgId.uuidString.prefix(8))…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Button("Edit", action: onEdit)
+                .controlSize(.small)
+            Button(role: .destructive, action: onRemove) {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help("Remove account")
+        }
+        .padding(8)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - Edit Account Sheet
+
+private struct EditAccountSheet: View {
+    @Bindable var appModel: AppModel
+    let account: ClaudeAccount
+    let onClose: () -> Void
+
+    @State private var labelInput: String
+    @State private var sessionKeyInput: String = ""
+    @State private var isSessionKeyShown: Bool = false
+    @State private var isValidating: Bool = false
+    @State private var statusMessage: String?
+    @State private var hasSucceeded: Bool = false
+
+    init(appModel: AppModel, account: ClaudeAccount, onClose: @escaping () -> Void) {
+        self.appModel = appModel
+        self.account = account
+        self.onClose = onClose
+        _labelInput = State(initialValue: account.label)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit Account")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Label").font(.subheadline)
+                TextField("Label", text: $labelInput)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Replace Session Key (optional)").font(.subheadline)
+                Text("Leave blank to keep the existing key.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    if isSessionKeyShown {
+                        TextField("sk-ant-...", text: $sessionKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                    } else {
+                        SecureField("sk-ant-...", text: $sessionKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    Button(action: { isSessionKeyShown.toggle() }) {
+                        Image(systemName: isSessionKeyShown ? "eye.slash" : "eye")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            if let message = statusMessage {
+                Label(message, systemImage: hasSucceeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(hasSucceeded ? .green : .red)
+                    .font(.caption)
+            }
+
+            Spacer()
+
+            HStack {
+                Button("Cancel") { onClose() }
+                Spacer()
+                Button("Save") {
+                    Task { await save() }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(isValidating)
+            }
+        }
+        .padding(20)
+        .frame(width: 420, height: 320)
+    }
+
+    @MainActor
+    private func save() async {
+        isValidating = true
+        statusMessage = nil
+        hasSucceeded = false
+
+        let trimmedLabel = labelInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedLabel.isEmpty && trimmedLabel != account.label {
+            appModel.renameAccount(account.id, label: trimmedLabel)
+        }
+
+        let trimmedKey = sessionKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedKey.isEmpty {
+            do {
+                let isValid = try await appModel.updateSessionKey(accountId: account.id, trimmedKey)
+                if isValid {
+                    statusMessage = "Session key updated"
+                    hasSucceeded = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        onClose()
+                    }
+                    isValidating = false
+                    return
+                } else {
+                    statusMessage = "Session key validation failed"
+                }
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+        } else {
+            // Label-only change.
+            onClose()
+        }
+        isValidating = false
     }
 }

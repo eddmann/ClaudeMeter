@@ -13,6 +13,9 @@ actor UsageServiceStub: UsageServiceProtocol {
     let isSessionKeyValid: Bool
     let organizations: [Organization]
 
+    private(set) var lastFetchedAccountId: UUID?
+    private(set) var lastFetchWasPrimary: Bool?
+
     init(
         fetchUsageResult: Result<UsageData, Error>,
         organizations: [Organization] = [],
@@ -23,17 +26,15 @@ actor UsageServiceStub: UsageServiceProtocol {
         self.isSessionKeyValid = isSessionKeyValid
     }
 
-    func fetchUsage(forceRefresh: Bool) async throws -> UsageData {
+    func fetchUsage(for account: ClaudeAccount, isPrimary: Bool, forceRefresh: Bool) async throws -> UsageData {
+        lastFetchedAccountId = account.id
+        lastFetchWasPrimary = isPrimary
         switch fetchUsageResult {
         case .success(let data):
             return data
         case .failure(let error):
             throw error
         }
-    }
-
-    func fetchOrganizations() async throws -> [Organization] {
-        organizations
     }
 
     func fetchOrganizations(sessionKey: SessionKey) async throws -> [Organization] {

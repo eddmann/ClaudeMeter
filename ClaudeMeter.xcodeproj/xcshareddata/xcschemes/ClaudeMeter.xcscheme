@@ -15,7 +15,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "68EC6CB62ED4AD85009E99EE"
+               BlueprintIdentifier = "6814B1062EC74F6000B4B5C3"
                BuildableName = "ClaudeMeter.app"
                BlueprintName = "ClaudeMeter"
                ReferencedContainer = "container:ClaudeMeter.xcodeproj">
@@ -35,7 +35,7 @@
             parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "68EC6CC62ED4AD87009E99EE"
+               BlueprintIdentifier = "281275B8A43D48EF3E864245"
                BuildableName = "ClaudeMeterTests.xctest"
                BlueprintName = "ClaudeMeterTests"
                ReferencedContainer = "container:ClaudeMeter.xcodeproj">
@@ -57,7 +57,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "68EC6CB62ED4AD85009E99EE"
+            BlueprintIdentifier = "6814B1062EC74F6000B4B5C3"
             BuildableName = "ClaudeMeter.app"
             BlueprintName = "ClaudeMeter"
             ReferencedContainer = "container:ClaudeMeter.xcodeproj">
@@ -108,7 +108,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "68EC6CB62ED4AD85009E99EE"
+            BlueprintIdentifier = "6814B1062EC74F6000B4B5C3"
             BuildableName = "ClaudeMeter.app"
             BlueprintName = "ClaudeMeter"
             ReferencedContainer = "container:ClaudeMeter.xcodeproj">

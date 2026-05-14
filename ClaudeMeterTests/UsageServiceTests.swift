@@ -13,17 +13,17 @@ final class UsageServiceTests: XCTestCase {
         let networkService = NetworkServiceStub(responseData: Data())
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
+        let account = ClaudeAccount(label: "Test")
+
         do {
-            _ = try await service.fetchUsage(forceRefresh: false)
+            _ = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: false)
             XCTFail("Expected noSessionKey error")
         } catch AppError.noSessionKey {
             // Expected
@@ -37,22 +37,18 @@ final class UsageServiceTests: XCTestCase {
         let networkService = NetworkServiceStub(responseData: Data())
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
-        await cacheRepository.set(expectedUsage)
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
+        await cacheRepository.seed(expectedUsage, accountId: account.id)
 
-        let usageData = try await service.fetchUsage(forceRefresh: false)
+        let usageData = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: false)
         let requestCount = await networkService.requestCount
         let lastEndpoint = await networkService.lastEndpoint
 
@@ -71,37 +67,27 @@ final class UsageServiceTests: XCTestCase {
             sonnetUtilization: nil,
             sonnetResetAt: nil
         )
-        let expectedSessionPercentage = TestConstants.sessionPercentage
-        let expectedWeeklyPercentage = TestConstants.weeklyPercentage
         let networkService = NetworkServiceStub(responseData: responseData)
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
-        var settings = AppSettings.default
-        settings.cachedOrganizationId = UUID(uuidString: TestConstants.organizationUUIDString)
-        try await settingsRepository.save(settings)
-        await cacheRepository.set(cachedUsage)
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
+        await cacheRepository.seed(cachedUsage, accountId: account.id)
 
-        let usageData = try await service.fetchUsage(forceRefresh: true)
-        let cachedData = await cacheRepository.cachedData
+        let usageData = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: true)
+        let cached = await cacheRepository.get(accountId: account.id)
         let requestCount = await networkService.requestCount
 
-        XCTAssertEqual(usageData.sessionUsage.utilization, expectedSessionPercentage)
-        XCTAssertEqual(usageData.weeklyUsage.utilization, expectedWeeklyPercentage)
-        XCTAssertEqual(cachedData?.sessionUsage.utilization, expectedSessionPercentage)
-        XCTAssertEqual(cachedData?.weeklyUsage.utilization, expectedWeeklyPercentage)
+        XCTAssertEqual(usageData.sessionUsage.utilization, TestConstants.sessionPercentage)
+        XCTAssertEqual(usageData.weeklyUsage.utilization, TestConstants.weeklyPercentage)
+        XCTAssertEqual(cached?.sessionUsage.utilization, TestConstants.sessionPercentage)
         XCTAssertEqual(requestCount, 1)
     }
 
@@ -114,28 +100,20 @@ final class UsageServiceTests: XCTestCase {
             sonnetUtilization: nil,
             sonnetResetAt: nil
         )
-
         let networkService = NetworkServiceStub(responseData: responseData)
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
-        var settings = AppSettings.default
-        settings.cachedOrganizationId = UUID(uuidString: TestConstants.organizationUUIDString)
-        try await settingsRepository.save(settings)
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
 
-        _ = try await service.fetchUsage(forceRefresh: true)
+        _ = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: true)
         let lastEndpoint = await networkService.lastEndpoint
 
         let expectedPath = "/organizations/\(TestConstants.organizationUUIDString)/usage"
@@ -151,29 +129,20 @@ final class UsageServiceTests: XCTestCase {
             sonnetUtilization: nil,
             sonnetResetAt: nil
         )
-
         let networkService = NetworkServiceStub(responseData: responseData)
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
 
-        var settings = AppSettings.default
-        settings.cachedOrganizationId = UUID(uuidString: TestConstants.organizationUUIDString)
-        try await settingsRepository.save(settings)
-
-        let usageData = try await service.fetchUsage(forceRefresh: true)
+        let usageData = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: true)
 
         XCTAssertEqual(usageData.sessionUsage.utilization, TestConstants.sessionPercentage)
         XCTAssertEqual(usageData.weeklyUsage.utilization, TestConstants.weeklyPercentage)
@@ -190,35 +159,24 @@ final class UsageServiceTests: XCTestCase {
             sonnetUtilization: nil,
             sonnetResetAt: nil
         )
-
         let networkService = NetworkServiceStub(responseData: responseData)
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
-
-        var settings = AppSettings.default
-        settings.cachedOrganizationId = UUID(uuidString: TestConstants.organizationUUIDString)
-        try await settingsRepository.save(settings)
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
 
         do {
-            _ = try await service.fetchUsage(forceRefresh: true)
+            _ = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: true)
             XCTFail("Expected invalidResponse error")
         } catch AppError.networkError(let networkError) {
-            if case .invalidResponse = networkError {
-                return
-            }
+            if case .invalidResponse = networkError { return }
             XCTFail("Expected invalidResponse error")
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -234,29 +192,20 @@ final class UsageServiceTests: XCTestCase {
             sonnetUtilization: TestConstants.sonnetPercentage,
             sonnetResetAt: TestConstants.sonnetResetDateString
         )
-
         let networkService = NetworkServiceStub(responseData: responseData)
         let cacheRepository = CacheRepositoryFake()
         let keychainRepository = KeychainRepositoryFake()
-        let settingsRepository = SettingsRepositoryFake()
 
         let service = UsageService(
             networkService: networkService,
             cacheRepository: cacheRepository,
-            keychainRepository: keychainRepository,
-            settingsRepository: settingsRepository
+            keychainRepository: keychainRepository
         )
 
-        try await keychainRepository.save(
-            sessionKey: TestConstants.sessionKeyValue,
-            account: "default"
-        )
+        let account = ClaudeAccount(label: "Test", organizationId: UUID(uuidString: TestConstants.organizationUUIDString))
+        try await keychainRepository.save(sessionKey: TestConstants.sessionKeyValue, account: account.keychainAccount)
 
-        var settings = AppSettings.default
-        settings.cachedOrganizationId = UUID(uuidString: TestConstants.organizationUUIDString)
-        try await settingsRepository.save(settings)
-
-        let usageData = try await service.fetchUsage(forceRefresh: true)
+        let usageData = try await service.fetchUsage(for: account, isPrimary: true, forceRefresh: true)
 
         XCTAssertEqual(usageData.sonnetUsage?.utilization, TestConstants.sonnetPercentage)
         if let resetAt = usageData.sonnetUsage?.resetAt {
@@ -278,21 +227,12 @@ private func makeUsageResponseData(
     sonnetResetAt: String?
 ) throws -> Data {
     let sonnetUsage = sonnetUtilization.map {
-        UsageLimitResponse(
-            utilization: $0,
-            resetsAt: sonnetResetAt
-        )
+        UsageLimitResponse(utilization: $0, resetsAt: sonnetResetAt)
     }
 
     let response = UsageAPIResponse(
-        fiveHour: UsageLimitResponse(
-            utilization: sessionUtilization,
-            resetsAt: sessionResetAt
-        ),
-        sevenDay: UsageLimitResponse(
-            utilization: weeklyUtilization,
-            resetsAt: weeklyResetAt
-        ),
+        fiveHour: UsageLimitResponse(utilization: sessionUtilization, resetsAt: sessionResetAt),
+        sevenDay: UsageLimitResponse(utilization: weeklyUtilization, resetsAt: weeklyResetAt),
         sevenDaySonnet: sonnetUsage
     )
 

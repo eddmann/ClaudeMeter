@@ -34,8 +34,10 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         return granted
     }
 
-    /// Evaluate usage thresholds and send notifications
+    /// Evaluate usage thresholds and send notifications for a specific account.
     func evaluateThresholds(
+        accountId: UUID,
+        accountLabel: String,
         usageData: UsageData,
         settings: AppSettings
     ) async {
@@ -48,54 +50,62 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         let isNotificationEnabled = settings.hasNotificationsEnabled && hasPermission
 
         let shouldNotifyWarning = state.shouldNotify(
+            accountId: accountId,
             currentPercentage: percentage,
             threshold: thresholds.warningThreshold,
             isWarning: true
         )
         let shouldNotifyCritical = state.shouldNotify(
+            accountId: accountId,
             currentPercentage: percentage,
             threshold: thresholds.criticalThreshold,
             isWarning: false
         )
         let shouldNotifyReset = isNotificationEnabled
             && thresholds.isNotifiedOnReset
-            && state.shouldNotifyReset(currentPercentage: percentage)
+            && state.shouldNotifyReset(accountId: accountId, currentPercentage: percentage)
 
         if isNotificationEnabled && shouldNotifyWarning {
             try? await sendThresholdNotification(
+                accountLabel: accountLabel,
                 percentage: percentage,
                 threshold: .warning,
                 resetTime: resetTime
             )
-            state.hasWarningBeenNotified = true
+            state.hasWarningBeenNotified[accountId] = true
         }
 
         if isNotificationEnabled && shouldNotifyCritical {
             try? await sendThresholdNotification(
+                accountLabel: accountLabel,
                 percentage: percentage,
                 threshold: .critical,
                 resetTime: resetTime
             )
-            state.hasCriticalBeenNotified = true
+            state.hasCriticalBeenNotified[accountId] = true
         }
 
         if shouldNotifyReset {
-            try? await sendResetNotification()
+            try? await sendResetNotification(accountLabel: accountLabel)
         }
 
+        // Re-arm the per-account "notified" flags when utilization drops below the threshold,
+        // so the *next* crossing fires again. Without this the dedupe would be permanent
+        // across the whole window.
         if percentage < thresholds.warningThreshold {
-            state.hasWarningBeenNotified = false
+            state.hasWarningBeenNotified[accountId] = false
         }
         if percentage < thresholds.criticalThreshold {
-            state.hasCriticalBeenNotified = false
+            state.hasCriticalBeenNotified[accountId] = false
         }
 
-        state.lastPercentage = percentage
+        state.lastSessionPercentageByAccount[accountId] = percentage
         try? await settingsRepository.saveNotificationState(state)
     }
 
     /// Send threshold notification
     func sendThresholdNotification(
+        accountLabel: String?,
         percentage: Double,
         threshold: UsageThresholdType,
         resetTime: Date
@@ -104,7 +114,7 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         guard await shouldSendNotifications() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = threshold.title
+        content.title = prefixTitle(threshold.title, accountLabel: accountLabel)
         content.body = threshold.body(percentage: percentage, resetTime: resetTime)
         content.sound = threshold == .critical ? .defaultCritical : .default
         content.categoryIdentifier = "usage.threshold"
@@ -120,11 +130,11 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
     }
 
     /// Send session reset notification
-    func sendResetNotification() async throws {
+    func sendResetNotification(accountLabel: String?) async throws {
         guard await shouldSendNotifications() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = UsageThresholdType.reset.title
+        content.title = prefixTitle(UsageThresholdType.reset.title, accountLabel: accountLabel)
         content.body = UsageThresholdType.reset.body(percentage: 0, resetTime: Date())
         content.sound = .default
         content.categoryIdentifier = "usage.reset"
@@ -144,6 +154,16 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
     }
 
     // MARK: - Private Methods
+
+    /// Prefix a notification title with the account label when one is provided, so multi-account
+    /// users see which account the alert refers to (e.g. "Client X — Session Reset"). When nil
+    /// the bare title is used — for test notifications and any global / not-account-scoped alert.
+    private func prefixTitle(_ title: String, accountLabel: String?) -> String {
+        guard let label = accountLabel?.trimmingCharacters(in: .whitespaces), !label.isEmpty else {
+            return title
+        }
+        return "\(label) — \(title)"
+    }
 
     private func shouldSendNotifications() async -> Bool {
         let systemPermission = await checkNotificationPermissions()

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// SwiftUI view for menu bar icon with configurable style
+/// SwiftUI view for menu bar icon with configurable style.
 struct MenuBarIconView: View {
     let percentage: Double
     let status: UsageStatus
@@ -15,8 +15,22 @@ struct MenuBarIconView: View {
     let isStale: Bool
     let iconStyle: IconStyle
     var weeklyPercentage: Double = 0  // Optional, used by dualBar style
+    /// When set, a single-character label is rendered before the icon to disambiguate accounts.
+    var accountLabel: String? = nil
 
     var body: some View {
+        HStack(spacing: 3) {
+            if let accountLabel, !accountLabel.isEmpty {
+                Text(accountLabel)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundColor(isStale ? .gray : status.color)
+            }
+            iconBody
+        }
+    }
+
+    @ViewBuilder
+    private var iconBody: some View {
         switch iconStyle {
         case .battery:
             BatteryIcon(percentage: percentage, status: status, isLoading: isLoading, isStale: isStale)

@@ -18,7 +18,7 @@ enum UsageThresholdType: String {
         switch self {
         case .warning: return "Usage Warning"
         case .critical: return "Critical Usage"
-        case .reset: return "Session Reset"
+        case .reset: return "5-Hour Session Reset"
         }
     }
 
@@ -33,7 +33,7 @@ enum UsageThresholdType: String {
         case .critical:
             return "Critical: \(Int(percentage))% of session used. Resets \(resetString)"
         case .reset:
-            return "Your usage limits have been reset. Fresh capacity available!"
+            return "Your 5-hour session window has reset. Fresh capacity available!"
         }
     }
 }
@@ -47,21 +47,26 @@ protocol NotificationServiceProtocol {
     /// Request notification authorization from the user
     func requestAuthorization() async throws -> Bool
 
-    /// Evaluate thresholds and send notifications for new usage data
+    /// Evaluate thresholds and send notifications for new usage data, scoped to one account.
     func evaluateThresholds(
+        accountId: UUID,
+        accountLabel: String,
         usageData: UsageData,
         settings: AppSettings
     ) async
 
-    /// Send threshold notification
+    /// Send threshold notification. When `accountLabel` is non-nil, the title is prefixed with
+    /// the label (e.g. "Client X — Usage Warning") so multi-account users see which account
+    /// the alert refers to. Pass nil for global/test notifications.
     func sendThresholdNotification(
+        accountLabel: String?,
         percentage: Double,
         threshold: UsageThresholdType,
         resetTime: Date
     ) async throws
 
-    /// Send session reset notification
-    func sendResetNotification() async throws
+    /// Send session reset notification. `accountLabel` is prefixed to the title when non-nil.
+    func sendResetNotification(accountLabel: String?) async throws
 
     /// Check system notification permissions
     func checkNotificationPermissions() async -> Bool
