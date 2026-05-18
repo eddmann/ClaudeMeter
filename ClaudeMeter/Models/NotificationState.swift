@@ -67,9 +67,11 @@ extension NotificationState {
         return !alreadyNotified && currentPercentage >= threshold
     }
 
-    /// Detect the 5-hour session reset for this account (utilization went from > 0 to 0).
+    /// Detect the 5-hour session reset for this account, but only when the user was actually
+    /// out of credits (utilization hit 100% before the reset). Resets that happen while the
+    /// user wasn't capped aren't actionable — they don't unblock anything — so we stay silent.
     func shouldNotifyReset(accountId: UUID, currentPercentage: Double) -> Bool {
         let last = lastSessionPercentageByAccount[accountId] ?? 0
-        return last > 0 && currentPercentage == 0
+        return last >= 100 && currentPercentage == 0
     }
 }

@@ -151,7 +151,7 @@ final class NotificationServiceTests: XCTestCase {
         settings.notificationThresholds.isNotifiedOnReset = true
 
         var state = NotificationState()
-        state.lastSessionPercentageByAccount[accountId] = 50
+        state.lastSessionPercentageByAccount[accountId] = 100
         try? await settingsRepository.saveNotificationState(state)
 
         await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
@@ -175,7 +175,7 @@ final class NotificationServiceTests: XCTestCase {
         settings.notificationThresholds.isNotifiedOnReset = true
 
         var state = NotificationState()
-        state.lastSessionPercentageByAccount[accountId] = 50
+        state.lastSessionPercentageByAccount[accountId] = 100
         try? await settingsRepository.saveNotificationState(state)
 
         // First refresh: usage drops to 0 → reset fires.
@@ -185,6 +185,33 @@ final class NotificationServiceTests: XCTestCase {
         await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
 
         XCTAssertEqual(notificationCenter.addedRequests.count, 1)
+    }
+
+    func test_resetNotification_doesNotFireWhenUserWasNotAtCap() async {
+        // The reset is only actionable when the user was actually out of credits (utilization
+        // hit 100%). A reset from a lower value isn't a "now you can use Claude again" moment
+        // — the user wasn't blocked — so no notification fires.
+        let settingsRepository = SettingsRepositoryFake()
+        let notificationCenter = NotificationCenterSpy()
+        let service = NotificationService(
+            settingsRepository: settingsRepository,
+            notificationCenter: notificationCenter
+        )
+
+        var settings = AppSettings.default
+        settings.hasNotificationsEnabled = true
+        settings.notificationThresholds.isNotifiedOnReset = true
+
+        // User was at 75% — well above zero, but never hit the cap.
+        var state = NotificationState()
+        state.lastSessionPercentageByAccount[accountId] = 75
+        try? await settingsRepository.saveNotificationState(state)
+
+        // Session window resets — utilization drops to 0.
+        await service.evaluateThresholds(accountId: accountId, accountLabel: "TestAccount", usageData: makeUsageData(percentage: 0), settings: settings)
+
+        let resetNotifs = notificationCenter.addedRequests.filter { $0.content.categoryIdentifier == "usage.reset" }
+        XCTAssertEqual(resetNotifs.count, 0)
     }
 
     func test_oneAccountActive_doesNotTriggerResetSpamOnAnotherAccountAtZero() async {
