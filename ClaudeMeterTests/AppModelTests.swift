@@ -1,10 +1,3 @@
-//
-//  AppModelTests.swift
-//  ClaudeMeterTests
-//
-//  Created by Edd on 2026-01-09.
-//
-
 import XCTest
 @testable import ClaudeMeter
 
@@ -220,6 +213,76 @@ final class AppModelTests: XCTestCase {
             UUID(uuidString: TestConstants.organizationUUIDString)
         )
         XCTAssertEqual(appModel.usageData, expectedUsage)
+    }
+
+    func test_importingSessionKey_savesImportedKeyAndLoadsData() async throws {
+        let expectedUsage = makeUsageData(percentage: TestConstants.sessionPercentage)
+        let organization = Organization(
+            id: 1,
+            uuid: TestConstants.organizationUUIDString,
+            name: "Test Org"
+        )
+        let usageService = UsageServiceStub(
+            fetchUsageResult: .success(expectedUsage),
+            organizations: [organization],
+            isSessionKeyValid: true
+        )
+        let notificationService = NotificationServiceSpy()
+        let settingsRepository = SettingsRepositoryFake()
+        let keychainRepository = KeychainRepositoryFake()
+        let importService = SessionKeyImportServiceStub(result: .success(ImportedSessionKey(
+            value: TestConstants.sessionKeyValue,
+            sourceDescription: "Chrome Default"
+        )))
+
+        let appModel = AppModel(
+            settingsRepository: settingsRepository,
+            keychainRepository: keychainRepository,
+            usageService: usageService,
+            notificationService: notificationService,
+            sessionKeyImportService: importService
+        )
+
+        let imported = try await appModel.importAndSaveSessionKey()
+        let savedKey = try await keychainRepository.retrieve(account: "default")
+
+        XCTAssertEqual(imported.sourceDescription, "Chrome Default")
+        XCTAssertEqual(savedKey, TestConstants.sessionKeyValue)
+        XCTAssertTrue(appModel.isSetupComplete)
+        XCTAssertEqual(appModel.usageData, expectedUsage)
+    }
+
+    func test_importingSessionKey_whenImportedKeyInvalid_staysInSetup() async throws {
+        let usageService = UsageServiceStub(
+            fetchUsageResult: .failure(TestError(message: TestConstants.unexpectedErrorMessage)),
+            organizations: [],
+            isSessionKeyValid: false
+        )
+        let notificationService = NotificationServiceSpy()
+        let settingsRepository = SettingsRepositoryFake()
+        let keychainRepository = KeychainRepositoryFake()
+        let importService = SessionKeyImportServiceStub(result: .success(ImportedSessionKey(
+            value: TestConstants.sessionKeyValue,
+            sourceDescription: "Chrome Default"
+        )))
+
+        let appModel = AppModel(
+            settingsRepository: settingsRepository,
+            keychainRepository: keychainRepository,
+            usageService: usageService,
+            notificationService: notificationService,
+            sessionKeyImportService: importService
+        )
+
+        do {
+            _ = try await appModel.importAndSaveSessionKey()
+            XCTFail("Expected invalidImportedSessionKey to be thrown")
+        } catch SessionKeyImportError.invalidImportedSessionKey {
+            XCTAssertFalse(appModel.isSetupComplete)
+            XCTAssertNil(appModel.usageData)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
 
     func test_userWithValidSessionKeyWithoutOrganization_staysInSetup() async {

@@ -1,10 +1,3 @@
-//
-//  AppModel.swift
-//  ClaudeMeter
-//
-//  Created by Edd on 2026-01-09.
-//
-
 import AppKit
 import Foundation
 import Observation
@@ -35,6 +28,7 @@ final class AppModel {
     @ObservationIgnored private let keychainRepository: KeychainRepositoryProtocol
     @ObservationIgnored private let usageService: UsageServiceProtocol
     @ObservationIgnored private let notificationService: NotificationServiceProtocol
+    @ObservationIgnored private let sessionKeyImportService: SessionKeyImportServiceProtocol
 
     // MARK: - Private
 
@@ -50,10 +44,12 @@ final class AppModel {
         settingsRepository: SettingsRepositoryProtocol = SettingsRepository(),
         keychainRepository: KeychainRepositoryProtocol = KeychainRepository(),
         usageService: UsageServiceProtocol? = nil,
-        notificationService: NotificationServiceProtocol? = nil
+        notificationService: NotificationServiceProtocol? = nil,
+        sessionKeyImportService: SessionKeyImportServiceProtocol = SessionKeyImportService()
     ) {
         self.settingsRepository = settingsRepository
         self.keychainRepository = keychainRepository
+        self.sessionKeyImportService = sessionKeyImportService
 
         let networkService = NetworkService()
         let cacheRepository = CacheRepository()
@@ -157,6 +153,17 @@ final class AppModel {
         startRefreshLoop()
 
         return true
+    }
+
+    func importAndSaveSessionKey() async throws -> ImportedSessionKey {
+        let imported = try await sessionKeyImportService.importSessionKey()
+        let isValid = try await validateAndSaveSessionKey(imported.value)
+
+        guard isValid else {
+            throw SessionKeyImportError.invalidImportedSessionKey
+        }
+
+        return imported
     }
 
     func clearSessionKey() async throws {

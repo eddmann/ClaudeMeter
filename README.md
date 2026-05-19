@@ -41,7 +41,7 @@ ClaudeMeter sends native macOS notifications when you reach warning or critical 
 
 ### Settings
 
-Configure your session key, refresh interval, icon style, and notification thresholds:
+Configure your Claude session, refresh interval, icon style, and notification thresholds:
 
 <p align="center">
   <img src="docs/settings-general.png" width="380" alt="Settings - General">
@@ -76,12 +76,20 @@ The app is signed and notarized by Apple, so it will open without any security w
 
 1. ClaudeMeter appears in your menu bar as a gauge icon
 2. The setup wizard will guide you through initial configuration
-3. Enter your Claude session key (found in Claude.ai browser cookies)
-4. The app validates your key and begins monitoring usage
+3. Import from a browser signed in to [claude.ai](https://claude.ai), or paste your session manually
+4. The app validates your session and begins monitoring usage
 
-### Finding Your Session Key
+### Claude Session Setup
 
-Your Claude session key is stored in your browser cookies:
+ClaudeMeter can import your existing Claude session from local browser cookies. Sign in to [claude.ai](https://claude.ai) in a supported browser, then choose **Import from Browser** in the setup wizard or Settings.
+
+Chrome, Arc, Brave, Edge, and other Chromium browsers may ask for browser Safe Storage Keychain access so ClaudeMeter can decrypt cookies. Safari cookies are protected by macOS and may require Full Disk Access.
+
+If browser import is unavailable, paste your session manually. ClaudeMeter accepts either a raw `sk-ant-...` session key or a Cookie header containing `sessionKey=...`.
+
+#### Manual Session Setup
+
+Your Claude session key is stored in your browser cookies.
 
 **Chrome/Edge:**
 
@@ -170,7 +178,8 @@ Then configure Claude Code's `~/.claude/settings.json`:
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
-- Active Claude.ai account with session key
+- Active Claude.ai account with a browser session or session key
+- For browser import, a supported browser signed in to [claude.ai](https://claude.ai)
 
 ## Building from Source
 
@@ -201,6 +210,7 @@ This application accesses Claude's web API using browser-based authentication me
 **Data storage:**
 
 - Session keys are stored securely in macOS Keychain (encrypted, device-local only)
+- Browser import reads local browser cookies to extract your Claude session, then stores only the session key in Keychain
 - Usage data is cached locally (unencrypted, contains usage percentages only)
 - No data is sent to third-party servers or collected by the developer
 

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		940ECFCED2930E18C9024CDB /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 1E869117452041001C7AF869 /* SnapshotTesting */; };
+		B4C1B3B12ECA700100000001 /* SweetCookieKit in Frameworks */ = {isa = PBXBuildFile; productRef = B4C1B3B02ECA700100000001 /* SweetCookieKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B4C1B3B12ECA700100000001 /* SweetCookieKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +121,7 @@
 			);
 			name = ClaudeMeter;
 			packageProductDependencies = (
+				B4C1B3B02ECA700100000001 /* SweetCookieKit */,
 			);
 			productName = ClaudeMeter;
 			productReference = 6814B1072EC74F6000B4B5C3 /* ClaudeMeter.app */;
@@ -154,6 +157,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7C6391426CABA70B39395D98 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+				B4C1B3AF2ECA700100000001 /* XCRemoteSwiftPackageReference "SweetCookieKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6814B1082EC74F6000B4B5C3 /* Products */;
@@ -380,7 +384,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ANGUD7343N;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -426,7 +430,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ANGUD7343N;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -504,6 +508,14 @@
 				minimumVersion = 1.18.7;
 			};
 		};
+		B4C1B3AF2ECA700100000001 /* XCRemoteSwiftPackageReference "SweetCookieKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/steipete/SweetCookieKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -511,6 +523,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7C6391426CABA70B39395D98 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
 			productName = SnapshotTesting;
+		};
+		B4C1B3B02ECA700100000001 /* SweetCookieKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B4C1B3AF2ECA700100000001 /* XCRemoteSwiftPackageReference "SweetCookieKit" */;
+			productName = SweetCookieKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
