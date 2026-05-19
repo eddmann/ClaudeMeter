@@ -1,10 +1,3 @@
-//
-//  AppDelegate.swift
-//  ClaudeMeter
-//
-//  Created by Edd on 2026-01-14.
-//
-
 import AppKit
 
 /// App delegate to manage menu bar lifecycle.
@@ -28,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SessionKeyImportPromptCoordinator.install()
+
         guard let appModel else {
             let fallbackModel = AppModel()
             self.appModel = fallbackModel

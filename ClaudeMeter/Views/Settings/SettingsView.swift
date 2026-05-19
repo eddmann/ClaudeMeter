@@ -1,22 +1,16 @@
-//
-//  SettingsView.swift
-//  ClaudeMeter
-//
-//  Created by Edd on 2025-11-14.
-//
-
 import SwiftUI
 import ServiceManagement
 import AppKit
 
-/// Settings view with tabbed interface
 struct SettingsView: View {
     @Bindable var appModel: AppModel
 
     @State private var sessionKey: String = ""
     @State private var isSessionKeyShown: Bool = false
     @State private var isValidatingSessionKey: Bool = false
+    @State private var isImportingSessionKey: Bool = false
     @State private var sessionKeyValidationMessage: String?
+    @State private var offersFullDiskAccessSettings: Bool = false
     @State private var hasSessionKeyValidationSucceeded: Bool = false
 
     @State private var isSendingTestNotification: Bool = false
@@ -75,16 +69,28 @@ struct SettingsView: View {
         .padding(24)
     }
 
-    // MARK: - Session Key Section
+    // MARK: - Claude Session Section
 
     private var sessionKeySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Session Key")
-                .font(.subheadline)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Claude Session")
+                        .font(.subheadline)
 
-            Text("Your Claude.ai session key authenticates API requests. Find this in your browser's cookies.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                    Text("Import from browser or paste your Claude session")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Label(sessionKey.isEmpty ? "Not configured" : "Saved in Keychain", systemImage: sessionKey.isEmpty ? "exclamationmark.circle" : "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(sessionKey.isEmpty ? Color.secondary : Color.green)
+            }
 
             HStack {
                 if isSessionKeyShown {
@@ -114,26 +120,61 @@ struct SettingsView: View {
             }
 
             HStack {
-                Button("Validate & Save") {
+                Button("Save") {
                     Task {
                         await validateAndSaveSessionKey()
                     }
                 }
                 .controlSize(.small)
-                .disabled(sessionKey.isEmpty || isValidatingSessionKey)
+                .disabled(sessionKey.isEmpty || isSessionKeyBusy)
 
-                if isValidatingSessionKey {
+                Button("Import from Browser") {
+                    Task {
+                        await importAndSaveSessionKey()
+                    }
+                }
+                .controlSize(.small)
+                .disabled(isSessionKeyBusy)
+
+                if isSessionKeyBusy {
                     ProgressView()
                         .controlSize(.small)
                 }
 
-                if let message = sessionKeyValidationMessage {
-                    Label(message, systemImage: hasSessionKeyValidationSucceeded ? "checkmark.circle.fill" : "xmark.circle.fill")
+                if let message = sessionKeyValidationMessage, hasSessionKeyValidationSucceeded {
+                    Label(message, systemImage: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(hasSessionKeyValidationSucceeded ? .green : .red)
+                        .foregroundStyle(.green)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
 
                 Spacer()
+            }
+
+            if let message = sessionKeyValidationMessage, !hasSessionKeyValidationSucceeded {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                            .frame(width: 16)
+
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if offersFullDiskAccessSettings {
+                        Button("Open Full Disk Access") {
+                            SystemSettingsOpener.openFullDiskAccess()
+                        }
+                        .controlSize(.small)
+                        .padding(.leading, 22)
+                    }
+                }
             }
         }
         .padding()
@@ -200,7 +241,7 @@ struct SettingsView: View {
                     Text("Menu Bar Icon Style")
                         .font(.subheadline)
 
-                    Text("Choose how the usage indicator appears in menu bar")
+                    Text("Choose how ClaudeMeter appears in the menu bar")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -481,7 +522,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("Monitor your Claude.ai usage limits.")
+                Text("Monitor your Claude.ai usage limits")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -503,6 +544,10 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    private var isSessionKeyBusy: Bool {
+        isValidatingSessionKey || isImportingSessionKey
+    }
 
     private func loadSettings() {
         Task { @MainActor in
@@ -534,6 +579,7 @@ struct SettingsView: View {
 
         isValidatingSessionKey = true
         sessionKeyValidationMessage = nil
+        offersFullDiskAccessSettings = false
         hasSessionKeyValidationSucceeded = false
 
         do {
@@ -554,13 +600,48 @@ struct SettingsView: View {
             }
         } catch let error as SessionKeyError {
             sessionKeyValidationMessage = error.localizedDescription
+            offersFullDiskAccessSettings = false
             hasSessionKeyValidationSucceeded = false
         } catch {
             sessionKeyValidationMessage = "Validation failed: \(error.localizedDescription)"
+            offersFullDiskAccessSettings = false
             hasSessionKeyValidationSucceeded = false
         }
 
         isValidatingSessionKey = false
+    }
+
+    @MainActor
+    private func importAndSaveSessionKey() async {
+        isImportingSessionKey = true
+        sessionKeyValidationMessage = nil
+        offersFullDiskAccessSettings = false
+        hasSessionKeyValidationSucceeded = false
+
+        do {
+            let imported = try await appModel.importAndSaveSessionKey()
+            sessionKey = imported.value
+            sessionKeyValidationMessage = "Imported from \(imported.sourceDescription)"
+            hasSessionKeyValidationSucceeded = true
+            offersFullDiskAccessSettings = false
+
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                sessionKeyValidationMessage = nil
+                offersFullDiskAccessSettings = false
+                hasSessionKeyValidationSucceeded = false
+            }
+        } catch let error as SessionKeyImportError {
+            sessionKeyValidationMessage = error.localizedDescription
+            offersFullDiskAccessSettings = error.offersFullDiskAccessSettings
+            hasSessionKeyValidationSucceeded = false
+        } catch {
+            sessionKeyValidationMessage = error.localizedDescription
+            offersFullDiskAccessSettings = false
+            hasSessionKeyValidationSucceeded = false
+        }
+
+        isImportingSessionKey = false
     }
 
     private func clearSessionKey() {
@@ -569,9 +650,11 @@ struct SettingsView: View {
                 try await appModel.clearSessionKey()
                 sessionKey = ""
                 sessionKeyValidationMessage = nil
+                offersFullDiskAccessSettings = false
                 hasSessionKeyValidationSucceeded = false
             } catch {
                 sessionKeyValidationMessage = "Failed to clear: \(error.localizedDescription)"
+                offersFullDiskAccessSettings = false
                 hasSessionKeyValidationSucceeded = false
             }
         }
