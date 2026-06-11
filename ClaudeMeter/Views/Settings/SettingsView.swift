@@ -62,6 +62,7 @@ struct SettingsView: View {
                 sessionKeySection
                 refreshIntervalSection
                 sonnetUsageSection
+                resetTimeSection
                 iconStyleSection
                 launchAtLoginSection
             }
@@ -225,6 +226,28 @@ struct SettingsView: View {
             Spacer()
 
             Toggle("", isOn: $appModel.settings.isSonnetUsageShown)
+                .labelsHidden()
+        }
+        .padding()
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Reset Time Section
+
+    private var resetTimeSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Show Reset Time")
+                    .font(.subheadline)
+                Text("Display the exact time each limit resets in the menu bar popover")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $appModel.settings.isResetTimeShown)
                 .labelsHidden()
         }
         .padding()

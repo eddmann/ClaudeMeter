@@ -79,10 +79,18 @@ extension UsageLimit {
         count == 1 ? singular : "\(singular)s"
     }
 
-    /// Exact reset time formatted in user's timezone for tooltip display
+    /// Exact reset time formatted in user's timezone for tooltip display (no year)
     var resetTimeFormatted: String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
+        formatter.timeZone = .current
+        formatter.setLocalizedDateFormatFromTemplate("MMMdjmm")
+        return formatter.string(from: resetAt)
+    }
+
+    /// Exact reset time-of-day only (no date), in the user's timezone.
+    var resetTimeOnlyFormatted: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
         formatter.timeStyle = .short
         formatter.timeZone = .current
         return formatter.string(from: resetAt)

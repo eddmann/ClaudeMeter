@@ -92,7 +92,9 @@ struct UsagePopoverView: View {
                             title: "5-Hour Session",
                             usageLimit: usageData.sessionUsage,
                             icon: "gauge.with.dots.needle.67percent",
-                            windowDuration: Constants.Pacing.sessionWindow
+                            windowDuration: Constants.Pacing.sessionWindow,
+                            showsExactResetTime: appModel.settings.isResetTimeShown,
+                            usesTimeOnlyResetTimestamp: true
                         )
 
                         // Weekly usage card
@@ -100,7 +102,8 @@ struct UsagePopoverView: View {
                             title: "Weekly Usage",
                             usageLimit: usageData.weeklyUsage,
                             icon: "calendar",
-                            windowDuration: Constants.Pacing.weeklyWindow
+                            windowDuration: Constants.Pacing.weeklyWindow,
+                            showsExactResetTime: appModel.settings.isResetTimeShown
                         )
 
                         // Sonnet usage card (conditional rendering)
@@ -109,7 +112,8 @@ struct UsagePopoverView: View {
                                 title: "Weekly Sonnet",
                                 usageLimit: sonnetUsage,
                                 icon: "sparkles",
-                                windowDuration: Constants.Pacing.weeklyWindow
+                                windowDuration: Constants.Pacing.weeklyWindow,
+                                showsExactResetTime: appModel.settings.isResetTimeShown
                             )
                         }
                     }

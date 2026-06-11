@@ -14,6 +14,24 @@ struct UsageCardView: View {
     let icon: String
     let windowDuration: TimeInterval?
 
+    /// Whether to append the exact reset time in parentheses.
+    var showsExactResetTime: Bool = true
+
+    /// When true, the exact reset time shows the time of day only (no date).
+    var usesTimeOnlyResetTimestamp: Bool = false
+
+    /// Exact reset time string, time-only or date+time depending on the card.
+    private var exactResetTime: String {
+        usesTimeOnlyResetTimestamp ? usageLimit.resetTimeOnlyFormatted : usageLimit.resetTimeFormatted
+    }
+
+    /// Reset label, optionally with the exact time appended in parentheses.
+    private var resetLabel: String {
+        showsExactResetTime
+            ? "Resets \(usageLimit.resetDescription) (\(exactResetTime))"
+            : "Resets \(usageLimit.resetDescription)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with icon and title
@@ -68,7 +86,7 @@ struct UsageCardView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
                         .font(.caption)
-                    Text("Resets \(usageLimit.resetDescription)")
+                    Text(resetLabel)
                         .font(.caption)
                 }
                 .help(usageLimit.resetTimeFormatted)
@@ -91,7 +109,7 @@ struct UsageCardView: View {
         .cornerRadius(12)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title): \(Int(usageLimit.percentage))% used, \(usageLimit.status.accessibilityDescription)")
-        .accessibilityValue("Resets \(usageLimit.resetDescription)")
+        .accessibilityValue(resetLabel)
     }
 }
 
