@@ -91,7 +91,7 @@ actor CacheRepository: CacheRepositoryProtocol {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
-        guard let jsonData = try? encoder.encode(data) else {
+        guard let jsonData = try? encoder.encode(UsageExportPayload(data)) else {
             return
         }
 

@@ -13,7 +13,7 @@ MODES=(
     "warningUsage|Medium usage - warning state"
     "criticalUsage|High usage - critical state"
     "exceededUsage|Over limit - exceeded state"
-    "withSonnet|Shows Sonnet usage card"
+    "withModelLimits|Shows model-specific usage cards"
     "loading|Loading spinner visible"
     "error|Error banner displayed"
     "setupWizard|First-time setup screen"

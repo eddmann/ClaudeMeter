@@ -15,8 +15,8 @@ struct UsageData: Codable, Equatable, Sendable {
     /// 7-day weekly usage across all models
     let weeklyUsage: UsageLimit
 
-    /// 7-day Sonnet-specific usage (nil if not used)
-    let sonnetUsage: UsageLimit?
+    /// 7-day limits scoped to a specific model, in the order the API reported them
+    let scopedUsage: [ScopedUsageLimit]
 
     /// Timestamp of when this data was fetched
     let lastUpdated: Date
@@ -24,8 +24,32 @@ struct UsageData: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case sessionUsage = "session_usage"
         case weeklyUsage = "weekly_usage"
-        case sonnetUsage = "sonnet_usage"
+        case scopedUsage = "scoped_usage"
         case lastUpdated = "last_updated"
+    }
+
+    /// Read-only: caches written before scoped limits existed carry a single Sonnet entry.
+    /// Kept out of `CodingKeys` so `encode` stays synthesized.
+    private enum LegacyCodingKeys: String, CodingKey {
+        case sonnetUsage = "sonnet_usage"
+    }
+}
+
+extension UsageData {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        sessionUsage = try container.decode(UsageLimit.self, forKey: .sessionUsage)
+        weeklyUsage = try container.decode(UsageLimit.self, forKey: .weeklyUsage)
+        lastUpdated = try container.decode(Date.self, forKey: .lastUpdated)
+
+        if let scoped = try container.decodeIfPresent([ScopedUsageLimit].self, forKey: .scopedUsage) {
+            scopedUsage = scoped
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+            scopedUsage = try legacy.decodeIfPresent(UsageLimit.self, forKey: .sonnetUsage)
+                .map { [ScopedUsageLimit(name: "Sonnet", limit: $0, isActive: false)] } ?? []
+        }
     }
 }
 

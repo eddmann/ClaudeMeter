@@ -61,7 +61,7 @@ struct SettingsView: View {
             } else {
                 sessionKeySection
                 refreshIntervalSection
-                sonnetUsageSection
+                modelUsageSection
                 iconStyleSection
                 launchAtLoginSection
             }
@@ -210,26 +210,56 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    // MARK: - Sonnet Usage Section
+    // MARK: - Model Usage Section
 
-    private var sonnetUsageSection: some View {
-        HStack {
+    /// Includes opted-in names so a model that drops out of the response can still be switched off.
+    private var scopedModelNames: [String] {
+        let reported = appModel.usageData?.scopedUsage.map(\.name) ?? []
+        return Array(Set(reported).union(appModel.settings.shownScopedModels)).sorted()
+    }
+
+    private var modelUsageSection: some View {
+        let names = scopedModelNames
+
+        return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Show Sonnet Usage")
+                Text("Model Usage")
                     .font(.subheadline)
-                Text("Display weekly Sonnet usage in the menu bar popover")
+                Text("Choose which model-specific weekly limits appear in the menu bar popover")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            if names.isEmpty {
+                Text("Your account has no model-specific limits right now. Any that appear will be listed here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(names, id: \.self) { name in
+                    HStack {
+                        Text(name)
+                            .font(.callout)
 
-            Toggle("", isOn: $appModel.settings.isSonnetUsageShown)
-                .labelsHidden()
+                        Spacer()
+
+                        Toggle("", isOn: scopedModelBinding(for: name))
+                            .labelsHidden()
+                            .accessibilityLabel("Show \(name) usage")
+                    }
+                }
+            }
         }
         .padding()
         .background(.quaternary.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func scopedModelBinding(for name: String) -> Binding<Bool> {
+        Binding(
+            get: { appModel.settings.isScopedModelShown(name) },
+            set: { appModel.settings.setScopedModel(name, isShown: $0) }
+        )
     }
 
     // MARK: - Icon Style Section

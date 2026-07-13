@@ -46,18 +46,18 @@ enum DemoDataFactory {
                 isLoading: false
             )
 
-        case .withSonnet:
+        case .withModelLimits:
             appModel.applyDemoState(
                 usageData: makeUsageData(
                     sessionPercentage: 65,
                     weeklyPercentage: 40,
-                    sonnetPercentage: 25
+                    scopedPercentages: [("Fable", 23), ("Opus", 58)]
                 ),
                 isSetupComplete: true,
                 errorMessage: nil,
                 isLoading: false
             )
-            appModel.settings.isSonnetUsageShown = true
+            appModel.settings.shownScopedModels = ["Fable", "Opus"]
 
         case .loading:
             appModel.applyDemoState(
@@ -89,25 +89,21 @@ enum DemoDataFactory {
     private static func makeUsageData(
         sessionPercentage: Double,
         weeklyPercentage: Double,
-        sonnetPercentage: Double? = nil
+        scopedPercentages: [(name: String, percentage: Double)] = []
     ) -> UsageData {
         let sessionResetAt = Date().addingTimeInterval(3 * 3600) // 3 hours from now
         let weeklyResetAt = Date().addingTimeInterval(4 * 24 * 3600) // 4 days from now
 
-        let sessionUsage = UsageLimit(utilization: sessionPercentage, resetAt: sessionResetAt)
-        let weeklyUsage = UsageLimit(utilization: weeklyPercentage, resetAt: weeklyResetAt)
-
-        let sonnetUsage: UsageLimit?
-        if let sonnetPercentage {
-            sonnetUsage = UsageLimit(utilization: sonnetPercentage, resetAt: weeklyResetAt)
-        } else {
-            sonnetUsage = nil
-        }
-
         return UsageData(
-            sessionUsage: sessionUsage,
-            weeklyUsage: weeklyUsage,
-            sonnetUsage: sonnetUsage,
+            sessionUsage: UsageLimit(utilization: sessionPercentage, resetAt: sessionResetAt),
+            weeklyUsage: UsageLimit(utilization: weeklyPercentage, resetAt: weeklyResetAt),
+            scopedUsage: scopedPercentages.enumerated().map { index, scoped in
+                ScopedUsageLimit(
+                    name: scoped.name,
+                    limit: UsageLimit(utilization: scoped.percentage, resetAt: weeklyResetAt),
+                    isActive: index == 0
+                )
+            },
             lastUpdated: Date()
         )
     }

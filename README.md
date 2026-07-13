@@ -6,7 +6,8 @@ Keep track of your Claude.ai plan usage at a glance.
 
 ## Features
 
-- **Real-time usage monitoring** - Track your 5-hour session, 7-day weekly, and Sonnet-specific usage limits
+- **Real-time usage monitoring** - Track your 5-hour session, 7-day weekly, and model-specific usage limits
+- **Any model, no update needed** - Model-specific limits (Fable, Opus, Sonnet, ...) are read from whatever the API reports, so a newly launched model is listed in Settings without an app update; switch on the ones you want shown in the popover
 - **Menu bar integration** - Clean, colour-coded usage indicator that lives in your macOS menu bar
 - **Multiple icon styles** - Choose from 6 icon styles: Battery, Circular, Minimal, Segments, Dual Bar, or Gauge
 - **Pacing indicator** - Flame icon warns when you're using Claude faster than sustainable pace
@@ -25,7 +26,7 @@ The menu bar icon changes colour based on your usage levels:
   <img src="docs/menubar-critical.png" width="260" alt="Menu bar - Critical threshold">
 </p>
 
-When using Sonnet models, an additional indicator shows your Sonnet-specific usage:
+When a model has its own weekly cap, an additional card shows that model's usage:
 
 <p align="center">
   <img src="docs/menubar-sonnet.png" width="300" alt="Menu bar - Sonnet usage">
@@ -134,16 +135,30 @@ ClaudeMeter exports usage data to `~/.claudemeter/usage.json` for use with exter
     "reset_at": "2025-12-24T12:00:00Z",
     "utilization": 29
   },
-  "sonnet_usage": {
-    "reset_at": "2025-12-30T00:00:00Z",
-    "utilization": 15
-  },
   "weekly_usage": {
     "reset_at": "2025-12-30T00:00:00Z",
     "utilization": 45
+  },
+  "scoped_usage": [
+    {
+      "name": "Fable",
+      "is_active": true,
+      "limit": {
+        "reset_at": "2025-12-30T00:00:00Z",
+        "utilization": 23
+      }
+    }
+  ],
+  "sonnet_usage": {
+    "reset_at": "2025-12-30T00:00:00Z",
+    "utilization": 15
   }
 }
 ```
+
+`scoped_usage` lists every model-specific limit the API reports, named as the API names it.
+`sonnet_usage` is kept as a deprecated alias so existing statusline scripts keep working; it is
+present only when a Sonnet limit exists. Prefer `scoped_usage` for new scripts.
 
 **Example: Claude Code statusline**
 

@@ -15,7 +15,7 @@ enum DemoMode: String, CaseIterable {
     case warningUsage
     case criticalUsage
     case exceededUsage
-    case withSonnet
+    case withModelLimits
     case loading
     case error
     case setupWizard
@@ -35,7 +35,7 @@ enum DemoMode: String, CaseIterable {
         case .warningUsage: "Medium usage - warning state"
         case .criticalUsage: "High usage - critical state"
         case .exceededUsage: "Over limit - exceeded state"
-        case .withSonnet: "Shows Sonnet usage card"
+        case .withModelLimits: "Shows model-specific usage cards"
         case .loading: "Loading spinner visible"
         case .error: "Error banner displayed"
         case .setupWizard: "First-time setup screen"

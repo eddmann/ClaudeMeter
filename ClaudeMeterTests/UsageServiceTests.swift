@@ -299,12 +299,10 @@ final class UsageServiceTests: XCTestCase {
 
         let usageData = try await service.fetchUsage(forceRefresh: true)
 
-        XCTAssertEqual(usageData.sonnetUsage?.utilization, TestConstants.sonnetPercentage)
-        if let resetAt = usageData.sonnetUsage?.resetAt {
-            assertDate(resetAt, equalsIso8601String: TestConstants.sonnetResetDateString)
-        } else {
-            XCTFail("Expected sonnet usage reset date")
-        }
+        let sonnet = try XCTUnwrap(usageData.scopedUsage.first)
+        XCTAssertEqual(sonnet.name, "Sonnet")
+        XCTAssertEqual(sonnet.limit.utilization, TestConstants.sonnetPercentage)
+        assertDate(sonnet.limit.resetAt, equalsIso8601String: TestConstants.sonnetResetDateString)
     }
 }
 
@@ -340,27 +338,4 @@ private func makeUsageResponseData(
     return try JSONEncoder().encode(response)
 }
 
-private func makeUsageData(percentage: Double) -> UsageData {
-    let resetDate = Date().addingTimeInterval(TestConstants.oneHourInterval)
-    let sessionUsage = UsageLimit(utilization: percentage, resetAt: resetDate)
-    let weeklyUsage = UsageLimit(utilization: TestConstants.weeklyPercentage, resetAt: resetDate)
 
-    return UsageData(
-        sessionUsage: sessionUsage,
-        weeklyUsage: weeklyUsage,
-        sonnetUsage: nil,
-        lastUpdated: Date()
-    )
-}
-
-private func assertDate(_ date: Date, equalsIso8601String isoString: String) {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-    guard let expectedDate = formatter.date(from: isoString) else {
-        XCTFail("Invalid ISO8601 test date: \(isoString)")
-        return
-    }
-
-    XCTAssertEqual(date.timeIntervalSince1970, expectedDate.timeIntervalSince1970, accuracy: 0.001)
-}

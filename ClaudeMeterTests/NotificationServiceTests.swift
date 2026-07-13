@@ -160,16 +160,3 @@ final class NotificationServiceTests: XCTestCase {
 
 // MARK: - Helpers
 
-@MainActor
-private func makeUsageData(percentage: Double) -> UsageData {
-    let resetDate = Date().addingTimeInterval(TestConstants.oneHourInterval)
-    let sessionUsage = UsageLimit(utilization: percentage, resetAt: resetDate)
-    let weeklyUsage = UsageLimit(utilization: TestConstants.weeklyPercentage, resetAt: resetDate)
-
-    return UsageData(
-        sessionUsage: sessionUsage,
-        weeklyUsage: weeklyUsage,
-        sonnetUsage: nil,
-        lastUpdated: Date()
-    )
-}
