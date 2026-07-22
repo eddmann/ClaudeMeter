@@ -33,6 +33,14 @@ struct AppSettings: Codable, Equatable, Sendable {
     /// Whether menu bar icons are shown in color instead of monochrome.
     var isColoredIcon: Bool
 
+    /// Days per week the weekly quota is expected to be consumed over (5-7).
+    /// Sustainable weekly pace is measured against this instead of all 7 days.
+    var weeklyPaceDays: Int
+
+    /// Whether pace (burn rate) is the primary display instead of quota percentage,
+    /// in both the menu bar and the popover.
+    var isPaceFirstDisplay: Bool
+
     static let `default` = AppSettings(
         refreshInterval: 60,
         hasNotificationsEnabled: true,
@@ -41,7 +49,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         cachedOrganizationId: nil,
         isSonnetUsageShown: false,
         iconStyle: .battery,
-        isColoredIcon: true
+        isColoredIcon: true,
+        weeklyPaceDays: 7,
+        isPaceFirstDisplay: false
     )
 
     enum CodingKeys: String, CodingKey {
@@ -53,6 +63,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         case isSonnetUsageShown = "show_sonnet_usage"
         case iconStyle = "icon_style"
         case isColoredIcon = "is_colored_icon"
+        case weeklyPaceDays = "weekly_pace_days"
+        case isPaceFirstDisplay = "pace_first_display"
     }
 }
 
@@ -69,6 +81,9 @@ extension AppSettings {
         isSonnetUsageShown = try container.decodeIfPresent(Bool.self, forKey: .isSonnetUsageShown) ?? defaults.isSonnetUsageShown
         iconStyle = try container.decodeIfPresent(IconStyle.self, forKey: .iconStyle) ?? defaults.iconStyle
         isColoredIcon = try container.decodeIfPresent(Bool.self, forKey: .isColoredIcon) ?? defaults.isColoredIcon
+        let decodedPaceDays = try container.decodeIfPresent(Int.self, forKey: .weeklyPaceDays) ?? defaults.weeklyPaceDays
+        weeklyPaceDays = max(5, min(7, decodedPaceDays))
+        isPaceFirstDisplay = try container.decodeIfPresent(Bool.self, forKey: .isPaceFirstDisplay) ?? defaults.isPaceFirstDisplay
     }
 }
 
@@ -76,5 +91,10 @@ extension AppSettings {
     /// Validate refresh interval is within bounds
     mutating func setRefreshInterval(_ interval: TimeInterval) {
         refreshInterval = max(60, min(600, interval))
+    }
+
+    /// Span the weekly quota is expected to be consumed over, per `weeklyPaceDays`.
+    var weeklyPacingDuration: TimeInterval {
+        Constants.Pacing.weeklyPacingDuration(days: weeklyPaceDays)
     }
 }

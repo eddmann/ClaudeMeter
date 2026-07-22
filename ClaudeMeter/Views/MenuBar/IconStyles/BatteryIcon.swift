@@ -13,6 +13,8 @@ struct BatteryIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideText: String?  // Replaces the percentage text (pace-first display)
+    var overrideColor: Color?  // Color for the override text
 
     private let capsuleWidth: CGFloat = 28
     private let capsuleHeight: CGFloat = 10
@@ -36,10 +38,10 @@ struct BatteryIcon: View {
                     }
                     .frame(width: capsuleWidth, height: capsuleHeight)
 
-                // Percentage text
-                Text("\(Int(percentage))%") 
+                // Percentage (or pace) text
+                Text(overrideText ?? "\(Int(percentage))%")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(textColor)
             }
 
             if isStale && !isLoading {
@@ -73,6 +75,10 @@ struct BatteryIcon: View {
 
     private var statusColor: Color {
         isStale ? .gray : status.color
+    }
+
+    private var textColor: Color {
+        IconPalette.textColor(isStale: isStale, override: overrideColor, status: status)
     }
 }
 

@@ -13,6 +13,7 @@ struct GaugeIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideColor: Color?  // Pace color for the needle (pace-first display)
 
     var body: some View {
         HStack(spacing: 4) {
@@ -61,7 +62,7 @@ struct GaugeIcon: View {
     }
 
     private var statusColor: Color {
-        isStale ? .gray : status.color
+        IconPalette.textColor(isStale: isStale, override: overrideColor, status: status)
     }
 }
 

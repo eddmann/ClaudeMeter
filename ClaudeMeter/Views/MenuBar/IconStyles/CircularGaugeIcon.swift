@@ -13,6 +13,8 @@ struct CircularGaugeIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideText: String?  // Replaces the percentage text (pace-first display)
+    var overrideColor: Color?  // Color for the override text
 
     private let lineWidth: CGFloat = 3
     private let size: CGFloat = 18
@@ -35,9 +37,9 @@ struct CircularGaugeIcon: View {
                     .font(.system(size: 7, weight: .medium))
                     .foregroundColor(statusColor)
             } else {
-                Text("\(Int(percentage))")
+                Text(overrideText ?? "\(Int(percentage))")
                     .font(.system(size: 7, weight: .bold, design: .rounded))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(textColor)
             }
         }
         .frame(width: size, height: size)
@@ -57,6 +59,10 @@ struct CircularGaugeIcon: View {
 
     private var statusColor: Color {
         isStale ? .gray : status.color
+    }
+
+    private var textColor: Color {
+        IconPalette.textColor(isStale: isStale, override: overrideColor, status: status)
     }
 }
 

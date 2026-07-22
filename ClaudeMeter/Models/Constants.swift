@@ -50,8 +50,31 @@ enum Constants {
         /// 7-day weekly window duration
         static let weeklyWindow: TimeInterval = 7 * 24 * 60 * 60
 
-        /// Ratio threshold for "at risk" status (using faster than sustainable)
-        static let riskThreshold: Double = 1.2
+        /// Ratio threshold for "at risk"/overuse status: any burn above the
+        /// sustainable line (1.0 = on track to reach the limit exactly at reset).
+        static let riskThreshold: Double = 1.0
+
+        /// Ratio threshold for underuse status (weekly quota likely left unused)
+        static let underuseThreshold: Double = 0.8
+
+        /// Ratio threshold above which overuse is shown as heavy (red instead of orange)
+        static let heavyOveruseThreshold: Double = 1.2
+
+        /// Minimum fraction of the window that must have elapsed before pace is meaningful
+        /// (avoids ratio noise right after a reset)
+        static let minimumElapsedFraction: Double = 0.05
+
+        /// Minimum utilization before pace projections surface. Below this, an early
+        /// front-loaded burst is treated as noise; at or above it the pace ratio,
+        /// projected end, and lockout warning all surface immediately, without
+        /// waiting out `minimumElapsedFraction`.
+        static let minimumUsageForProjection: Double = 2.0
+
+        /// Converts a weekly pace-days setting (5-7) into the span, in seconds, the
+        /// weekly quota is expected to be consumed over.
+        static func weeklyPacingDuration(days: Int) -> TimeInterval {
+            TimeInterval(days) * 24 * 60 * 60
+        }
     }
 
     /// Usage threshold configuration

@@ -22,7 +22,9 @@ final class IconCache {
         isStale: Bool,
         iconStyle: IconStyle,
         weeklyPercentage: Double,
-        isColored: Bool
+        isColored: Bool,
+        paceKind: PaceKind?,
+        paceRatio: Double?
     ) -> NSImage? {
         cache.object(forKey: cacheKey(
             percentage: percentage,
@@ -31,7 +33,9 @@ final class IconCache {
             isStale: isStale,
             iconStyle: iconStyle,
             weeklyPercentage: weeklyPercentage,
-            isColored: isColored
+            isColored: isColored,
+            paceKind: paceKind,
+            paceRatio: paceRatio
         ))
     }
 
@@ -43,7 +47,9 @@ final class IconCache {
         isStale: Bool,
         iconStyle: IconStyle,
         weeklyPercentage: Double,
-        isColored: Bool
+        isColored: Bool,
+        paceKind: PaceKind?,
+        paceRatio: Double?
     ) {
         cache.setObject(
             image,
@@ -54,7 +60,9 @@ final class IconCache {
                 isStale: isStale,
                 iconStyle: iconStyle,
                 weeklyPercentage: weeklyPercentage,
-                isColored: isColored
+                isColored: isColored,
+                paceKind: paceKind,
+                paceRatio: paceRatio
             )
         )
     }
@@ -66,10 +74,19 @@ final class IconCache {
         isStale: Bool,
         iconStyle: IconStyle,
         weeklyPercentage: Double,
-        isColored: Bool
+        isColored: Bool,
+        paceKind: PaceKind?,
+        paceRatio: Double?
     ) -> NSString {
         let percent = String(format: "%.2f", percentage)
         let weekly = String(format: "%.2f", weeklyPercentage)
-        return "\(percent)|\(weekly)|\(status.rawValue)|\(isLoading)|\(isStale)|\(iconStyle.rawValue)|\(isColored)" as NSString
+        let pace = paceKind?.rawValue ?? "none"
+        // The displayed ratio is rounded to 1 decimal, but its rendered color is a
+        // function of the full-precision value. Two ratios that round equal can
+        // straddle a PacePalette threshold (e.g. 2.49 vs 2.53 -> orange vs red), so
+        // the color band must be part of the key or they'd collide on a stale image.
+        let ratio = paceRatio.map { String(format: "%.1f", $0) } ?? "none"
+        let band = paceRatio.map { PacePalette.band(for: $0).rawValue } ?? "none"
+        return "\(percent)|\(weekly)|\(status.rawValue)|\(isLoading)|\(isStale)|\(iconStyle.rawValue)|\(isColored)|\(pace)|\(ratio)|\(band)" as NSString
     }
 }

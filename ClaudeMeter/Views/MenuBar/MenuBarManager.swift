@@ -54,6 +54,9 @@ final class MenuBarManager {
     // MARK: - Setup
 
     private func setupStatusItem() {
+        // Show tooltips (e.g. the pace explanation) quickly instead of the ~2s system default
+        UserDefaults.standard.set(300, forKey: "NSInitialToolTipDelay")
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }
 
@@ -100,6 +103,8 @@ final class MenuBarManager {
             _ = appModel.isLoading
             _ = appModel.settings.iconStyle
             _ = appModel.settings.isColoredIcon
+            _ = appModel.settings.weeklyPaceDays
+            _ = appModel.settings.isPaceFirstDisplay
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -119,6 +124,21 @@ final class MenuBarManager {
         let isLoading = appModel.isLoading
         let style = appModel.settings.iconStyle
         let isColored = appModel.settings.isColoredIcon
+        let settings = appModel.settings
+
+        // Pace-first display: replace the quota text with the most relevant ratio -
+        // the off-pace signal's if there is one, else the worst (highest) of the
+        // window ratios, so an on-pace weekly isn't hidden behind an idle session.
+        // Skip the pace computation entirely when the feature is off.
+        var paceSignal: PaceSignal?
+        var paceRatio: Double?
+        if settings.isPaceFirstDisplay, let data = appModel.usageData {
+            paceSignal = data.paceSignal(weeklyPaceDays: settings.weeklyPaceDays)
+            paceRatio = paceSignal?.ratio
+                ?? data.fallbackPaceRatio(weeklyPaceDays: settings.weeklyPaceDays)
+        }
+
+        button.toolTip = paceSignal?.tooltip
 
         if let cachedImage = iconCache.get(
             percentage: percentage,
@@ -127,7 +147,9 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
-            isColored: isColored
+            isColored: isColored,
+            paceKind: paceSignal?.kind,
+            paceRatio: paceRatio
         ) {
             button.image = cachedImage
             return
@@ -140,7 +162,9 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
-            isColored: isColored
+            isColored: isColored,
+            paceKind: paceSignal?.kind,
+            paceRatio: paceRatio
         )
 
         iconCache.set(
@@ -151,7 +175,9 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
-            isColored: isColored
+            isColored: isColored,
+            paceKind: paceSignal?.kind,
+            paceRatio: paceRatio
         )
 
         button.image = image

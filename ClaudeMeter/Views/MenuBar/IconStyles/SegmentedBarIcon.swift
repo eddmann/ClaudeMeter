@@ -13,6 +13,7 @@ struct SegmentedBarIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideColor: Color?  // Pace color for the active segments (pace-first display)
 
     private let segmentCount = 5
     private let segmentWidth: CGFloat = 4
@@ -59,6 +60,10 @@ struct SegmentedBarIcon: View {
     private func segmentColor(for index: Int) -> Color {
         if isStale {
             return .gray
+        }
+        // Pace-first display: every active segment reflects the single pace color
+        if let overrideColor {
+            return overrideColor
         }
         // Color segments by position to create a gradient effect (green → orange → red)
         // Uses Constants.Thresholds.Status for consistent color boundaries

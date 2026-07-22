@@ -62,7 +62,9 @@ struct SettingsView: View {
                 sessionKeySection
                 refreshIntervalSection
                 sonnetUsageSection
+                displayModeSection
                 iconStyleSection
+                paceIndicatorSection
                 launchAtLoginSection
             }
         }
@@ -232,6 +234,29 @@ struct SettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
+    // MARK: - Display Mode Section
+
+    private var displayModeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Display Mode")
+                    .font(.subheadline)
+                Text("What the menu bar and popover lead with")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            DisplayModePicker(
+                isPaceFirst: $appModel.settings.isPaceFirstDisplay,
+                iconStyle: appModel.settings.iconStyle,
+                isColored: appModel.settings.isColoredIcon
+            )
+        }
+        .padding()
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
     // MARK: - Icon Style Section
 
     private var iconStyleSection: some View {
@@ -263,6 +288,35 @@ struct SettingsView: View {
                 selection: $appModel.settings.iconStyle,
                 isColored: appModel.settings.isColoredIcon
             )
+        }
+        .padding()
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: - Pace Indicator Section
+
+    private var paceIndicatorSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Weekly Pace Basis")
+                    .font(.subheadline)
+                Text("Days per week you expect to use your weekly quota over")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Picker("Weekly pace basis", selection: $appModel.settings.weeklyPaceDays) {
+                Text("5 days").tag(5)
+                Text("6 days").tag(6)
+                Text("7 days").tag(7)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 200)
+            .accessibilityLabel("Weekly pace basis in days")
         }
         .padding()
         .background(.quaternary.opacity(0.3))

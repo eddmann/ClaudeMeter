@@ -98,20 +98,99 @@ extension UsageLimit {
         resetAt < Date() && utilization > 0
     }
 
-    /// Returns true if current usage rate will likely exceed limit before reset
-    /// - Parameter windowDuration: Duration of the usage window (e.g., 5 hours for session)
-    func isAtRisk(windowDuration: TimeInterval) -> Bool {
+    /// Ratio of usage fraction to elapsed-time fraction of the window.
+    /// 1.0 = exactly sustainable pace, >1 = burning faster, <1 = underusing.
+    /// Returns nil when the window isn't active, or too little has elapsed and
+    /// usage is still below `minimumUsageForProjection` (a front-loaded burst
+    /// surfaces the ratio without waiting out the elapsed grace).
+    /// - Parameters:
+    ///   - windowDuration: Duration of the usage window (e.g., 5 hours for session)
+    ///   - pacingDuration: Time span the quota is expected to be consumed over.
+    ///     Defaults to the full window; a shorter span (e.g., 5 working days of a
+    ///     7-day window) expects the quota to be burned faster. Elapsed time is
+    ///     capped at the pacing duration, so past it the ratio equals the usage fraction.
+    func paceRatio(windowDuration: TimeInterval, pacingDuration: TimeInterval? = nil) -> Double? {
+        guard let expected = expectedUsagePercent(windowDuration: windowDuration, pacingDuration: pacingDuration) else {
+            return nil
+        }
+        return min(utilization, 100) / expected
+    }
+
+    /// Utilization percentage the pace plan expects by now (0-100), i.e. the
+    /// elapsed fraction of the pacing span. Returns nil under the same
+    /// conditions as `paceRatio(windowDuration:pacingDuration:)`.
+    func expectedUsagePercent(windowDuration: TimeInterval, pacingDuration: TimeInterval? = nil) -> Double? {
+        let pacing = pacingDuration ?? windowDuration
         let now = Date()
-        guard resetAt > now else { return false }
+        guard resetAt > now, pacing > 0 else { return nil }
+
+        let windowStart = resetAt.addingTimeInterval(-windowDuration)
+        let timeElapsedPct = min(now.timeIntervalSince(windowStart) / pacing, 1.0)
+        // A front-loaded burst is meaningful before the elapsed grace: once usage
+        // clears `minimumUsageForProjection` the ratio surfaces immediately, matching
+        // `projectedLimitDate`. `timeElapsedPct > 0` keeps the ratio's divisor safe.
+        guard timeElapsedPct > 0,
+              timeElapsedPct >= Constants.Pacing.minimumElapsedFraction
+                  || utilization >= Constants.Pacing.minimumUsageForProjection
+        else { return nil }
+
+        return timeElapsedPct * 100
+    }
+
+    /// Returns true if current usage rate will likely exceed limit before reset
+    /// - Parameters:
+    ///   - windowDuration: Duration of the usage window (e.g., 5 hours for session)
+    ///   - pacingDuration: See `paceRatio(windowDuration:pacingDuration:)`
+    func isAtRisk(windowDuration: TimeInterval, pacingDuration: TimeInterval? = nil) -> Bool {
+        guard let ratio = paceRatio(windowDuration: windowDuration, pacingDuration: pacingDuration) else { return false }
+        return ratio > Constants.Pacing.riskThreshold
+    }
+
+    /// Projected utilization percentage at the pacing deadline if the current
+    /// average rate holds. Extrapolates to the pacing horizon (default: the full
+    /// window) so it shares a time basis with `paceRatio` — a card can't then read
+    /// "underusing" and "hits limit" at once. Returns nil when the window isn't
+    /// active, or too little has elapsed and usage is below
+    /// `minimumUsageForProjection`.
+    /// - Parameters:
+    ///   - windowDuration: Duration of the usage window (e.g., 5 hours for session)
+    ///   - pacingDuration: See `paceRatio(windowDuration:pacingDuration:)`
+    func projectedEndPercent(windowDuration: TimeInterval, pacingDuration: TimeInterval? = nil) -> Double? {
+        let now = Date()
+        guard resetAt > now else { return nil }
 
         let windowStart = resetAt.addingTimeInterval(-windowDuration)
         let elapsed = now.timeIntervalSince(windowStart)
-        guard elapsed > 0 else { return false }
+        guard elapsed > 0 else { return nil }
+        // As with `projectedLimitDate`, a burst clearing `minimumUsageForProjection`
+        // projects immediately instead of waiting out the elapsed grace window.
+        guard elapsed >= windowDuration * Constants.Pacing.minimumElapsedFraction
+                  || utilization >= Constants.Pacing.minimumUsageForProjection
+        else { return nil }
 
-        let timeElapsedPct = elapsed / windowDuration
-        let usagePct = min(utilization, 100) / 100
-        guard timeElapsedPct > 0 else { return false }
+        // Never project a horizon shorter than what's already elapsed.
+        let horizon = max(pacingDuration ?? windowDuration, elapsed)
+        return utilization * (horizon / elapsed)
+    }
 
-        return (usagePct / timeElapsedPct) > Constants.Pacing.riskThreshold
+    /// When the limit will be hit at the current average rate, if that lands on or
+    /// before the pacing deadline. Returns nil if usage won't reach 100% in time
+    /// (or already has). Unlike `projectedEndPercent`, this fires as soon as usage
+    /// clears `minimumUsageForProjection` — a genuine front-loaded burst warns
+    /// immediately rather than waiting out the elapsed-time grace window.
+    func projectedLimitDate(windowDuration: TimeInterval, pacingDuration: TimeInterval? = nil) -> Date? {
+        let now = Date()
+        guard !isExceeded, utilization >= Constants.Pacing.minimumUsageForProjection, resetAt > now else {
+            return nil
+        }
+
+        let windowStart = resetAt.addingTimeInterval(-windowDuration)
+        let elapsed = now.timeIntervalSince(windowStart)
+        guard elapsed > 0 else { return nil }
+
+        let hitDate = windowStart.addingTimeInterval(elapsed * 100 / utilization)
+        let deadline = windowStart.addingTimeInterval(max(pacingDuration ?? windowDuration, elapsed))
+        guard hitDate < deadline else { return nil }
+        return hitDate
     }
 }

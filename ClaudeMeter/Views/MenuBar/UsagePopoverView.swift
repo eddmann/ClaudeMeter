@@ -14,6 +14,17 @@ struct UsagePopoverView: View {
     let onRequestClose: (() -> Void)?
     @Environment(\.openSettings) private var openSettings
 
+    /// Span the weekly quota is expected to be consumed over, per the pace-days setting
+    private var weeklyPacingDuration: TimeInterval {
+        appModel.settings.weeklyPacingDuration
+    }
+
+    /// Appends the pace basis to weekly card titles when it isn't the full week
+    private func weeklyCardTitle(_ base: String) -> String {
+        let days = appModel.settings.weeklyPaceDays
+        return days == 7 ? base : "\(base) (\(days)/7-day)"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -92,24 +103,31 @@ struct UsagePopoverView: View {
                             title: "5-Hour Session",
                             usageLimit: usageData.sessionUsage,
                             icon: "gauge.with.dots.needle.67percent",
-                            windowDuration: Constants.Pacing.sessionWindow
+                            windowDuration: Constants.Pacing.sessionWindow,
+                            isPaceFirst: appModel.settings.isPaceFirstDisplay
                         )
 
                         // Weekly usage card
                         UsageCardView(
-                            title: "Weekly Usage",
+                            title: weeklyCardTitle("Weekly Usage"),
                             usageLimit: usageData.weeklyUsage,
                             icon: "calendar",
-                            windowDuration: Constants.Pacing.weeklyWindow
+                            windowDuration: Constants.Pacing.weeklyWindow,
+                            pacingDuration: weeklyPacingDuration,
+                            showsUnderuse: true,
+                            isPaceFirst: appModel.settings.isPaceFirstDisplay
                         )
 
                         // Sonnet usage card (conditional rendering)
                         if appModel.settings.isSonnetUsageShown, let sonnetUsage = usageData.sonnetUsage {
                             UsageCardView(
-                                title: "Weekly Sonnet",
+                                title: weeklyCardTitle("Weekly Sonnet"),
                                 usageLimit: sonnetUsage,
                                 icon: "sparkles",
-                                windowDuration: Constants.Pacing.weeklyWindow
+                                windowDuration: Constants.Pacing.weeklyWindow,
+                                pacingDuration: weeklyPacingDuration,
+                                showsUnderuse: true,
+                                isPaceFirst: appModel.settings.isPaceFirstDisplay
                             )
                         }
                     }
@@ -149,7 +167,7 @@ struct UsagePopoverView: View {
             }
             .padding()
         }
-        .frame(width: 320, height: 460)
+        .frame(width: 320, height: 510)
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Usage Dashboard")

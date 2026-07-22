@@ -13,6 +13,8 @@ struct MinimalIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideText: String?  // Replaces the percentage text (pace-first display)
+    var overrideColor: Color?  // Color for the override text
 
     var body: some View {
         HStack(spacing: 2) {
@@ -21,9 +23,9 @@ struct MinimalIcon: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(statusColor)
             } else {
-                Text("\(Int(percentage))%")
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(statusColor)
+                Text(overrideText ?? "\(Int(percentage))%")
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundColor(textColor)
             }
 
             if isStale && !isLoading {
@@ -40,6 +42,10 @@ struct MinimalIcon: View {
 
     private var statusColor: Color {
         isStale ? .gray : status.color
+    }
+
+    private var textColor: Color {
+        IconPalette.textColor(isStale: isStale, override: overrideColor, status: status)
     }
 }
 

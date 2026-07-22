@@ -14,6 +14,8 @@ struct DualBarIcon: View {
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var overrideText: String?  // Replaces the percentage text (pace-first display)
+    var overrideColor: Color?  // Color for the override text
 
     private let barWidth: CGFloat = 32
     private let barHeight: CGFloat = 5
@@ -45,10 +47,10 @@ struct DualBarIcon: View {
                     .frame(width: barWidth, height: barHeight)
                 }
 
-                // Show session percentage (primary metric)
-                Text("\(Int(percentage))%")
+                // Show session percentage (or pace, primary metric)
+                Text(overrideText ?? "\(Int(percentage))%")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(statusColor)
+                    .foregroundColor(textColor)
             }
 
             if isStale && !isLoading {
@@ -65,6 +67,10 @@ struct DualBarIcon: View {
 
     private var statusColor: Color {
         isStale ? .gray : status.color
+    }
+
+    private var textColor: Color {
+        IconPalette.textColor(isStale: isStale, override: overrideColor, status: status)
     }
 
     private var sessionBarColor: Color {
