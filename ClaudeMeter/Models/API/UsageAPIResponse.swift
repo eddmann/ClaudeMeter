@@ -9,7 +9,8 @@ import Foundation
 
 /// API response for usage data
 struct UsageAPIResponse: Codable {
-    let fiveHour: UsageLimitResponse
+    /// Nil when the account has no 5-hour session limit
+    let fiveHour: UsageLimitResponse?
     let sevenDay: UsageLimitResponse
     let sevenDaySonnet: UsageLimitResponse?
 
@@ -49,19 +50,19 @@ enum MappingError: LocalizedError {
 /// Extension to map API response to domain model
 extension UsageAPIResponse {
     func toDomain() throws -> UsageData {
-        let iso8601Formatter = ISO8601DateFormatter()
-        iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        let sessionResetDate = try parseResetDate(
-            from: fiveHour.resetsAt,
-            field: "fiveHour.resetsAt",
-            formatter: iso8601Formatter,
-            fallback: Constants.Pacing.sessionWindow
-        )
+        let sessionLimit: UsageLimit? = try fiveHour.map { session in
+            UsageLimit(
+                utilization: session.utilization,
+                resetAt: try parseResetDate(
+                    from: session.resetsAt,
+                    field: "fiveHour.resetsAt",
+                    fallback: Constants.Pacing.sessionWindow
+                )
+            )
+        }
         let weeklyResetDate = try parseResetDate(
             from: sevenDay.resetsAt,
             field: "sevenDay.resetsAt",
-            formatter: iso8601Formatter,
             fallback: Constants.Pacing.weeklyWindow
         )
 
@@ -70,7 +71,6 @@ extension UsageAPIResponse {
             let sonnetResetDate = try parseResetDate(
                 from: sonnet.resetsAt,
                 field: "sevenDaySonnet.resetsAt",
-                formatter: iso8601Formatter,
                 fallback: Constants.Pacing.weeklyWindow
             )
             return UsageLimit(
@@ -80,10 +80,7 @@ extension UsageAPIResponse {
         }
 
         return UsageData(
-            sessionUsage: UsageLimit(
-                utilization: fiveHour.utilization,
-                resetAt: sessionResetDate
-            ),
+            sessionUsage: sessionLimit,
             weeklyUsage: UsageLimit(
                 utilization: sevenDay.utilization,
                 resetAt: weeklyResetDate
@@ -96,13 +93,17 @@ extension UsageAPIResponse {
     private func parseResetDate(
         from rawValue: String?,
         field: String,
-        formatter: ISO8601DateFormatter,
         fallback: TimeInterval
     ) throws -> Date {
         guard let rawValue else {
             return Date().addingTimeInterval(fallback)
         }
-        guard let date = formatter.date(from: rawValue) else {
+        // The API sends timestamps both with and without fractional seconds
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let withoutFraction = ISO8601DateFormatter()
+        withoutFraction.formatOptions = [.withInternetDateTime]
+        guard let date = withFraction.date(from: rawValue) ?? withoutFraction.date(from: rawValue) else {
             throw MappingError.missingCriticalField(field: field)
         }
         return date

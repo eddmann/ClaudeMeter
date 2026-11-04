@@ -7,13 +7,15 @@
 
 import SwiftUI
 
-/// Dual bar menu bar icon showing session (top) and weekly (bottom) usage
+/// Dual bar menu bar icon showing session (top) and weekly (bottom) usage.
+/// Shows a single weekly bar when the account has no 5-hour session limit.
 struct DualBarIcon: View {
-    let percentage: Double        // Session percentage
+    let percentage: Double        // Session percentage (weekly when there is no session limit)
     let weeklyPercentage: Double  // Weekly percentage
     let status: UsageStatus
     let isLoading: Bool
     let isStale: Bool
+    var hasSessionLimit: Bool = true
 
     private let barWidth: CGFloat = 32
     private let barHeight: CGFloat = 5
@@ -24,6 +26,18 @@ struct DualBarIcon: View {
             if isLoading {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(statusColor)
+            } else if !hasSessionLimit {
+                // Single weekly bar, same overall height as the two stacked bars
+                ProgressBar(
+                    percentage: weeklyPercentage,
+                    color: sessionBarColor,
+                    isStale: isStale
+                )
+                .frame(width: barWidth, height: barHeight * 2 + barSpacing)
+
+                Text("\(Int(weeklyPercentage))%")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundColor(statusColor)
             } else {
                 // Two stacked progress bars
@@ -59,8 +73,15 @@ struct DualBarIcon: View {
         }
         .frame(height: 22)
         .padding(.horizontal, 4)
-        .accessibilityLabel("Session: \(Int(percentage)) percent, Weekly: \(Int(weeklyPercentage)) percent")
+        .accessibilityLabel(accessibilityText)
         .accessibilityValue(status.accessibilityDescription)
+    }
+
+    private var accessibilityText: String {
+        if hasSessionLimit {
+            return "Session: \(Int(percentage)) percent, Weekly: \(Int(weeklyPercentage)) percent"
+        }
+        return "Weekly: \(Int(weeklyPercentage)) percent"
     }
 
     private var statusColor: Color {
@@ -112,6 +133,7 @@ private struct ProgressBar: View {
         HStack(spacing: 20) {
             DualBarIcon(percentage: 45, weeklyPercentage: 30, status: .safe, isLoading: true, isStale: false)
             DualBarIcon(percentage: 45, weeklyPercentage: 30, status: .safe, isLoading: false, isStale: true)
+            DualBarIcon(percentage: 30, weeklyPercentage: 30, status: .safe, isLoading: false, isStale: false, hasSessionLimit: false)
         }
     }
     .padding()

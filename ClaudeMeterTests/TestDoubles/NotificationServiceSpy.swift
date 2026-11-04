@@ -30,7 +30,8 @@ final class NotificationServiceSpy: NotificationServiceProtocol {
     func sendThresholdNotification(
         percentage: Double,
         threshold: UsageThresholdType,
-        resetTime: Date
+        resetTime: Date,
+        limitName: String
     ) async throws {
         sentThresholdPercentage = percentage
         sentThresholdType = threshold
