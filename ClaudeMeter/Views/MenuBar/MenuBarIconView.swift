@@ -15,6 +15,7 @@ struct MenuBarIconView: View {
     let isStale: Bool
     let iconStyle: IconStyle
     var weeklyPercentage: Double = 0  // Optional, used by dualBar style
+    var hasSessionLimit: Bool = true  // False when the account has no 5-hour limit (dualBar style)
 
     var body: some View {
         switch iconStyle {
@@ -27,7 +28,7 @@ struct MenuBarIconView: View {
         case .segments:
             SegmentedBarIcon(percentage: percentage, status: status, isLoading: isLoading, isStale: isStale)
         case .dualBar:
-            DualBarIcon(percentage: percentage, weeklyPercentage: weeklyPercentage, status: status, isLoading: isLoading, isStale: isStale)
+            DualBarIcon(percentage: percentage, weeklyPercentage: weeklyPercentage, status: status, isLoading: isLoading, isStale: isStale, hasSessionLimit: hasSessionLimit)
         case .gauge:
             GaugeIcon(percentage: percentage, status: status, isLoading: isLoading, isStale: isStale)
         }

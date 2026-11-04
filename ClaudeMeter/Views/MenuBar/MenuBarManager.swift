@@ -112,9 +112,10 @@ final class MenuBarManager {
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
 
-        let percentage = clamped(appModel.usageData?.sessionUsage.percentage ?? 0)
+        let percentage = clamped(appModel.usageData?.primaryUsage.percentage ?? 0)
         let weeklyPercentage = clamped(appModel.usageData?.weeklyUsage.percentage ?? 0)
         let status = appModel.usageData?.primaryStatus ?? .safe
+        let hasSessionLimit = appModel.usageData.map { $0.sessionUsage != nil } ?? true
         let isStale = appModel.usageData?.isStale ?? false
         let isLoading = appModel.isLoading
         let style = appModel.settings.iconStyle
@@ -127,6 +128,7 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
+            hasSessionLimit: hasSessionLimit,
             isColored: isColored
         ) {
             button.image = cachedImage
@@ -140,6 +142,7 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
+            hasSessionLimit: hasSessionLimit,
             isColored: isColored
         )
 
@@ -151,6 +154,7 @@ final class MenuBarManager {
             isStale: isStale,
             iconStyle: style,
             weeklyPercentage: weeklyPercentage,
+            hasSessionLimit: hasSessionLimit,
             isColored: isColored
         )
 

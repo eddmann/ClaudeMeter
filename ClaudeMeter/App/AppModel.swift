@@ -193,7 +193,8 @@ final class AppModel {
         try await notificationService.sendThresholdNotification(
             percentage: 85.0,
             threshold: .warning,
-            resetTime: Date().addingTimeInterval(3600)
+            resetTime: Date().addingTimeInterval(3600),
+            limitName: usageData?.primaryLimitName ?? UsageData.sessionLimitName
         )
     }
 

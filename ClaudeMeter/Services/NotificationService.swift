@@ -40,10 +40,12 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
         settings: AppSettings
     ) async {
         let thresholds = settings.notificationThresholds
-        let percentage = usageData.sessionUsage.percentage
-        let resetTime = usageData.sessionUsage.resetAt
+        let percentage = usageData.primaryUsage.percentage
+        let resetTime = usageData.primaryUsage.resetAt
+        let limitName = usageData.primaryLimitName
 
         var state = await settingsRepository.loadNotificationState()
+        state.switchTrackedLimit(to: limitName, currentPercentage: percentage)
         let hasPermission = await checkNotificationPermissions()
         let isNotificationEnabled = settings.hasNotificationsEnabled && hasPermission
 
@@ -65,7 +67,8 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
             try? await sendThresholdNotification(
                 percentage: percentage,
                 threshold: .warning,
-                resetTime: resetTime
+                resetTime: resetTime,
+                limitName: limitName
             )
             state.hasWarningBeenNotified = true
         }
@@ -74,7 +77,8 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
             try? await sendThresholdNotification(
                 percentage: percentage,
                 threshold: .critical,
-                resetTime: resetTime
+                resetTime: resetTime,
+                limitName: limitName
             )
             state.hasCriticalBeenNotified = true
         }
@@ -98,14 +102,15 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
     func sendThresholdNotification(
         percentage: Double,
         threshold: UsageThresholdType,
-        resetTime: Date
+        resetTime: Date,
+        limitName: String
     ) async throws {
         // Check if notifications are enabled
         guard await shouldSendNotifications() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = threshold.title
-        content.body = threshold.body(percentage: percentage, resetTime: resetTime)
+        content.body = threshold.body(percentage: percentage, resetTime: resetTime, limitName: limitName)
         content.sound = threshold == .critical ? .defaultCritical : .default
         content.categoryIdentifier = "usage.threshold"
         content.userInfo = ["threshold": threshold.rawValue, "percentage": percentage]
@@ -125,7 +130,7 @@ final class NotificationService: NSObject, NotificationServiceProtocol, UNUserNo
 
         let content = UNMutableNotificationContent()
         content.title = UsageThresholdType.reset.title
-        content.body = UsageThresholdType.reset.body(percentage: 0, resetTime: Date())
+        content.body = UsageThresholdType.reset.body(percentage: 0, resetTime: Date(), limitName: "")
         content.sound = .default
         content.categoryIdentifier = "usage.reset"
 

@@ -87,13 +87,15 @@ struct UsagePopoverView: View {
             if let usageData = appModel.usageData {
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Session usage card
-                        UsageCardView(
-                            title: "5-Hour Session",
-                            usageLimit: usageData.sessionUsage,
-                            icon: "gauge.with.dots.needle.67percent",
-                            windowDuration: Constants.Pacing.sessionWindow
-                        )
+                        // Session usage card (hidden when the account has no 5-hour limit)
+                        if let sessionUsage = usageData.sessionUsage {
+                            UsageCardView(
+                                title: "5-Hour Session",
+                                usageLimit: sessionUsage,
+                                icon: "gauge.with.dots.needle.67percent",
+                                windowDuration: Constants.Pacing.sessionWindow
+                            )
+                        }
 
                         // Weekly usage card
                         UsageCardView(

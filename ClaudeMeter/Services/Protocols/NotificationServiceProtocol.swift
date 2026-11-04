@@ -22,16 +22,16 @@ enum UsageThresholdType: String {
         }
     }
 
-    func body(percentage: Double, resetTime: Date) -> String {
+    func body(percentage: Double, resetTime: Date, limitName: String) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         let resetString = formatter.localizedString(for: resetTime, relativeTo: Date())
 
         switch self {
         case .warning:
-            return "You've used \(Int(percentage))% of your 5-hour session. Resets \(resetString)"
+            return "You've used \(Int(percentage))% of your \(limitName). Resets \(resetString)"
         case .critical:
-            return "Critical: \(Int(percentage))% of session used. Resets \(resetString)"
+            return "Critical: \(Int(percentage))% of your \(limitName) used. Resets \(resetString)"
         case .reset:
             return "Your usage limits have been reset. Fresh capacity available!"
         }
@@ -57,7 +57,8 @@ protocol NotificationServiceProtocol {
     func sendThresholdNotification(
         percentage: Double,
         threshold: UsageThresholdType,
-        resetTime: Date
+        resetTime: Date,
+        limitName: String
     ) async throws
 
     /// Send session reset notification

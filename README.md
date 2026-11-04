@@ -145,13 +145,16 @@ ClaudeMeter exports usage data to `~/.claudemeter/usage.json` for use with exter
 }
 ```
 
+`session_usage` is omitted when your account has no 5-hour session limit, and `sonnet_usage` is omitted when there is no Sonnet-specific limit.
+
 **Example: Claude Code statusline**
 
 Create `~/.claude/statusline.sh`:
 
 ```bash
 #!/bin/bash
-usage=$(jq -r '.session_usage.utilization' ~/.claudemeter/usage.json 2>/dev/null)
+# Falls back to weekly usage when there is no 5-hour session limit
+usage=$(jq -r '(.session_usage // .weekly_usage).utilization' ~/.claudemeter/usage.json 2>/dev/null)
 
 if [ -z "$usage" ] || [ "$usage" = "null" ]; then
   echo "Usage: ~"
